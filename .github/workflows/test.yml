@@ -1,0 +1,20 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate installer
+        shell: powershell
+        run: .\tests\Test-Installer.ps1
+      - name: Exercise dry run
+        shell: powershell
+        run: .\install.ps1 -DryRun -SkipLogin -SkipPathUpdate
