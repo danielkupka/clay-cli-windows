@@ -27,8 +27,6 @@ There are only **two things** to understand:
 | **Windows bridge** | Installs the `clay` command and runs Clay's official CLI through WSL | Yes, on Windows |
 | **Clay plugin** | Teaches Codex, Claude Code, or Cursor how to use Clay | Yes for those apps; no for PowerShell-only use |
 
-**Clay plugin**, **agent plugin**, and **app plugin** are different names for the same installed Clay integration. This guide uses **Clay plugin** consistently.
-
 `clay-run/agent-plugins` is the GitHub marketplace repository that contains the Clay plugin. It is not another plugin you must install.
 
 The **Windows bridge is not a plugin**. It is only the adapter that makes the Clay CLI run on Windows.
