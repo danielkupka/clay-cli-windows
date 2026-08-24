@@ -5,7 +5,7 @@ Use Clay from PowerShell, Codex, Claude Code, or Cursor on Windows.
 > [!IMPORTANT]
 > **You do not need to install the Clay CLI first or clone Clay's GitHub repository.**
 >
-> Start with the single PowerShell command below. It obtains Clay's official CLI and makes it work on Windows.
+> Choose either installation route below: paste the command into PowerShell yourself, or ask a local coding agent to run it for you. Both routes install the same Windows bridge.
 >
 > Already installed another `clay` command? That is okay. The installer detects it, leaves it untouched, and puts this Windows bridge first in your user PATH.
 
@@ -13,11 +13,14 @@ Use Clay from PowerShell, Codex, Claude Code, or Cursor on Windows.
 
 ```mermaid
 flowchart TD
-    A["1. Paste the PowerShell installer"] --> B["The clay command works on Windows through WSL"]
-    B --> C{"Where will you use Clay?"}
-    C -->|PowerShell| D["Done"]
-    C -->|Codex, Claude Code, or Cursor| E["2. Install the Clay plugin in that app"]
-    E --> F["New chat: Use Clay to..."]
+    A{"Choose how to install"} -->|Direct| B["Paste one command into PowerShell"]
+    A -->|Agent-assisted| C["Ask a local coding agent to run it"]
+    B --> D["The clay command works on Windows through WSL"]
+    C --> D
+    D --> E{"Where will you use Clay?"}
+    E -->|PowerShell| F["Done"]
+    E -->|Codex, Claude Code, or Cursor| G["Install the Clay plugin in that app"]
+    G --> H["New chat: Use Clay to..."]
 ```
 
 There are only **two things** to understand:
@@ -43,6 +46,10 @@ The installer configures WSL for you. Windows may ask for administrator approval
 
 ## 1. Install the Windows bridge
 
+Choose **one** of these routes. They produce the same installation.
+
+### Option A: run it directly in PowerShell
+
 Open the Windows **Start** menu, type **PowerShell**, open it, and paste this entire line:
 
 ```powershell
@@ -55,7 +62,27 @@ Press **Enter** and follow the messages:
 - Approve the Windows prompt if WSL needs to be enabled.
 - If Windows requests a restart, restart it and paste the same command again.
 
-Then close PowerShell, open it again, and check:
+### Option B: ask a coding agent to run it
+
+Open a **local** Codex, Claude Code, or Cursor chat on the Windows computer you want to configure. Paste this prompt:
+
+```text
+I am using Windows. Please run this command in PowerShell and help me complete any approval, restart, or sign-in steps:
+
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex
+
+After installation, verify it with `clay whoami`.
+```
+
+The agent runs PowerShell on your behalf. You still need to approve administrator changes, restart Windows if requested, and complete Clay's browser sign-in yourself.
+
+This route requires an agent with access to your local Windows terminal. It cannot configure your computer from a web-only or remote chat with no local shell access. Pasting only the command may work, but the full prompt above makes your intent clear.
+
+This follows Clay's [official agent-assisted approach](https://github.com/clay-run/agent-plugins/blob/main/GETTING_STARTED.md), adapted for the Windows bridge.
+
+### Verify either route
+
+Open a new PowerShell window and check:
 
 ```powershell
 clay whoami
@@ -137,6 +164,10 @@ Restart Windows and paste the same installer command into PowerShell again. Runn
 ### PowerShell says `clay` is not recognized
 
 Close and reopen PowerShell. If that does not work, restart Windows and rerun the installer.
+
+### I pasted the command into a coding agent, but it did not run
+
+Use the full prompt from Option B and confirm that the agent has access to a local Windows terminal. If it is a web-only or remote agent, use Option A in PowerShell instead.
 
 ### The plugin is installed, but a new chat cannot see it
 
