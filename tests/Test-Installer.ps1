@@ -27,7 +27,10 @@ $readme = Get-Content -Raw -LiteralPath $readmePath
 $requiredInstallerText = @(
     'clay-run/agent-plugins',
     '/usr/local/bin/clay-windows',
-    'ClayCLI'
+    'ClayCLI',
+    'Existing clay command found',
+    'Get-Command clay -All',
+    '$Directory + $otherEntries'
 )
 
 foreach ($required in $requiredInstallerText) {
@@ -36,7 +39,7 @@ foreach ($required in $requiredInstallerText) {
     }
 }
 
-if (-not $readme.Contains('irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.1.0/install.ps1 | iex')) {
+if (-not $readme.Contains('irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex')) {
     throw 'README.md is missing the pinned one-line installer.'
 }
 

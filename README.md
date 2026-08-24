@@ -1,172 +1,196 @@
 # Clay CLI for Windows
 
-A small Windows-to-WSL bridge for Clay's official agent plugin and CLI.
+Use Clay from PowerShell, Codex, Claude Code, or Cursor on Windows.
 
-Clay currently ships Linux and macOS launchers but no native Windows executable. This installer keeps Windows as the host operating system, installs or reuses WSL, and exposes a normal `clay` command to PowerShell, Codex, Claude Code, and Cursor.
+> [!IMPORTANT]
+> **You do not need to install the Clay CLI first or clone Clay's GitHub repository.**
+>
+> Start with the single PowerShell command below. It obtains Clay's official CLI and makes it work on Windows.
+>
+> Already installed another `clay` command? That is okay. The installer detects it, leaves it untouched, and puts this Windows bridge first in your user PATH.
 
-## The short answer
+## The whole setup
 
-**You do not need to clone or install the `clay-run/agent-plugins` GitHub repository first.** Run the PowerShell installer below directly.
-
-- If the Clay plugin is already installed in Codex, Claude Code, or Cursor, the installer reuses its official launcher.
-- If the plugin is not installed, the installer downloads the official launcher from `clay-run/agent-plugins` for you.
-- Installing the **agent plugin** is a separate step. It adds Clay's skills and natural-language guidance to your coding app; the Windows installer adds the working `clay` command.
-
-| Piece | Purpose | Installed by |
-| --- | --- | --- |
-| WSL | Runs Clay's official Linux binary on Windows | This installer, when needed |
-| Clay CLI and Windows `clay` command | Provides search, routines, tables, workflows, and authentication | This installer |
-| Clay agent plugin | Teaches Codex, Claude Code, or Cursor how and when to use the CLI | You install it inside the app |
-
-If you only want to run Clay commands from PowerShell, the plugin is optional. If you want to ask for Clay work naturally inside Codex, Claude Code, or Cursor, install the plugin too.
-
-## One-line installation
-
-Open **PowerShell** and paste:
-
-```powershell
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.1.0/install.ps1 | iex
+```mermaid
+flowchart TD
+    A["1. Paste the PowerShell installer"] --> B["The clay command works on Windows through WSL"]
+    B --> C{"Where will you use Clay?"}
+    C -->|PowerShell| D["Done"]
+    C -->|Codex, Claude Code, or Cursor| E["2. Install the Clay plugin in that app"]
+    E --> F["New chat: Use Clay to..."]
 ```
 
-The installer may request administrator approval if WSL is not enabled. If Windows asks for a restart, restart and paste the same line again.
+There are only **two things** to understand:
 
-After installation:
+| Name used in this guide | What it is | Do you need it? |
+| --- | --- | --- |
+| **Windows bridge** | Installs the `clay` command and runs Clay's official CLI through WSL | Yes, on Windows |
+| **Clay plugin** | Teaches Codex, Claude Code, or Cursor how to use Clay | Yes for those apps; no for PowerShell-only use |
+
+**Clay plugin**, **agent plugin**, and **app plugin** are different names for the same installed Clay integration. This guide uses **Clay plugin** consistently.
+
+`clay-run/agent-plugins` is the GitHub marketplace repository that contains the Clay plugin. It is not another plugin you must install.
+
+The **Windows bridge is not a plugin**. It is only the adapter that makes the Clay CLI run on Windows.
+
+Why start with the bridge? An older or different `clay` command can otherwise appear first on Windows' PATH, causing the coding app to call the wrong installation. Starting here avoids that conflict; it is not because installing Clay first damages anything.
+
+## What is WSL?
+
+WSL means **Windows Subsystem for Linux**. It is a Microsoft feature that lets Windows run Linux programs quietly in the background.
+
+Clay does not currently provide a native Windows executable, so the bridge runs Clay's official Linux CLI through WSL. You stay in Windows: there is no dual boot, no replacement of Windows, and no Linux interface you need to learn.
+
+The installer configures WSL for you. Windows may ask for administrator approval or one restart.
+
+## 1. Install the Windows bridge
+
+Open the Windows **Start** menu, type **PowerShell**, open it, and paste this entire line:
+
+```powershell
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex
+```
+
+Press **Enter** and follow the messages:
+
+- Sign in if a Clay page opens in your browser.
+- Approve the Windows prompt if WSL needs to be enabled.
+- If Windows requests a restart, restart it and paste the same command again.
+
+Then close PowerShell, open it again, and check:
 
 ```powershell
 clay whoami
 ```
 
-If you are not signed in yet, the installer starts `clay login` and opens Clay's browser sign-in flow.
+If it shows your Clay user and workspace, the Windows bridge is ready.
 
-## Recommended Windows setup order
+Want to use Clay only through PowerShell? You can stop here and run `clay --help`.
 
-1. Run the one-line PowerShell installer above.
-2. Complete the Clay browser login if prompted.
-3. Confirm that `clay whoami` returns your user and workspace.
-4. Install the Clay plugin in your coding app using the app-specific instructions below.
-5. Fully quit and reopen the coding app so it sees the new PATH entry and plugin.
-6. Start a new chat and ask for the Clay task in normal language.
+## 2. Install the Clay plugin in your app
 
-Installing the plugin before the Windows bridge also works. The bridge automatically reuses the newest launcher it finds.
-
-## What the installer does
-
-1. Reuses an existing non-Docker WSL distribution, or installs Ubuntu 24.04.
-2. Finds the newest official Clay launcher in the Codex, Claude Code, or Cursor plugin cache.
-3. If the plugin is not installed yet, downloads the launcher directly from [`clay-run/agent-plugins`](https://github.com/clay-run/agent-plugins).
-4. Installs a CRLF-safe forwarder at `/usr/local/bin/clay-windows` inside WSL.
-5. Creates `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`.
-6. Adds that directory to the current user's permanent `PATH`.
-7. Verifies the CLI version and authentication.
-
-The wrapper resolves the newest installed plugin launcher every time it runs, so normal plugin upgrades do not require repointing it.
-
-## Requirements
-
-- Windows 10 version 2004 or newer, or Windows 11
-- PowerShell 5.1 or newer
-- Internet access during installation and the first Clay CLI launch
-- Permission to enable WSL if it is not already installed
-
-You do not need to install Linux as the host operating system. WSL is the compatibility layer used only for the Clay binary.
-
-## Use Clay inside your coding app
-
-The Windows bridge and the app plugin work together:
-
-- The bridge makes `clay` executable on Windows.
-- The plugin supplies skills such as Clay Search, Audiences, Routines, Tables, and Workflows.
-- You normally ask for the outcome in plain language; you do not have to type CLI commands yourself.
+Do this only if you want to ask for Clay work inside Codex, Claude Code, or Cursor. The plugin is installed **in the coding app**, not in Clay's website.
 
 ### Codex
 
-Install the marketplace:
+Run this in PowerShell:
 
 ```powershell
 codex plugin marketplace add clay-run/agent-plugins
 ```
 
-Then:
-
-1. Open **Plugins** in Codex and install **clay**.
-2. Fully quit and reopen Codex.
-3. Create a new task and ask, for example:
-
-```text
-Use Clay to find 20 fintech companies in Berlin and save two decision-makers per company to Audiences.
-```
-
-Codex should select the appropriate `clay:*` skills automatically. You can be explicit when useful:
-
-```text
-Use $clay:search to find the companies, then $clay:audiences to save the contacts.
-```
+Open **Plugins** in Codex, install **clay**, then fully quit and reopen Codex.
 
 ### Claude Code
 
-Run these slash commands inside Claude Code:
+Run these inside Claude Code, one at a time:
 
 ```text
 /plugin marketplace add clay-run/agent-plugins
 /plugin install clay@clay-plugins
 ```
 
-Fully quit and reopen Claude Code, then ask naturally:
+Fully quit and reopen Claude Code.
+
+### Cursor
+
+Open a Cursor Agent chat and paste:
+
+```text
+Install the Clay plugin by following https://github.com/clay-run/agent-plugins/blob/main/GETTING_STARTED.md. I use Windows and the Windows Clay CLI bridge is already installed, so verify it with `clay whoami` instead of replacing it.
+```
+
+Cursor installation can depend on your organization's plugin policy. Let the agent follow Clay's [official instructions](https://github.com/clay-run/agent-plugins/blob/main/GETTING_STARTED.md), then fully quit and reopen Cursor.
+
+## 3. Use Clay
+
+Open a new chat in your coding app and ask normally:
 
 ```text
 Use Clay to find ten SEO agencies in Hamburg and identify two decision-makers at each.
 ```
 
-### Cursor
-
-Cursor installation can depend on your Teams or Enterprise plugin policy. Follow Clay's current [`GETTING_STARTED.md`](https://github.com/clay-run/agent-plugins/blob/main/GETTING_STARTED.md) for the plugin installation path that applies to your account.
-
-If you hand the setup to Cursor's agent, use this prompt:
+Or name the Clay skills explicitly:
 
 ```text
-Install the Clay plugin for Cursor by following its official GETTING_STARTED.md. The Windows Clay CLI bridge is already installed, so verify it with `clay whoami` instead of replacing it.
+Use $clay:search to find the companies, then $clay:audiences to save the contacts.
 ```
 
-After the plugin appears, fully quit and reopen Cursor. Start a new chat and ask for the Clay task in normal language.
+For every future chat, just start with **"Use Clay to..."**. You do not need to mention Windows, WSL, this wrapper, or the GitHub repository again.
 
-### PowerShell without an app plugin
+## How to know everything works
 
-The CLI also works directly:
+- `clay whoami` shows your Clay account in a new PowerShell window.
+- The Clay plugin appears in your coding app.
+- A new chat recognizes a request beginning with **"Use Clay to..."**.
+
+## Do I run `clay:setup`?
+
+Usually, **no**. Clay's official guide covers several operating systems and normally asks the plugin's setup skill to install the CLI, configure PATH, and sign in. This Windows installer already performs those jobs.
+
+If `clay whoami` works and the Clay plugin appears in your app, go directly to your Clay request.
+
+## Common problems
+
+### Windows asks for a restart
+
+Restart Windows and paste the same installer command into PowerShell again. Running it twice is safe.
+
+### PowerShell says `clay` is not recognized
+
+Close and reopen PowerShell. If that does not work, restart Windows and rerun the installer.
+
+### The plugin is installed, but a new chat cannot see it
+
+Fully quit and reopen the coding app. Reloading a window or opening another chat may not be enough after installing a plugin.
+
+### I already installed the Clay plugin
+
+Keep it. Run the Windows bridge installer, verify `clay whoami`, and restart the coding app. You do not need to reinstall the plugin.
+
+### I already installed another Clay CLI
+
+That is okay too. The installer does not uninstall it. It reports the existing command and places this bridge first in your user PATH.
+
+After installation, open a new PowerShell window and run:
 
 ```powershell
-clay whoami
-clay --help
-clay search --help
-clay routines list
+Get-Command clay -All
 ```
 
-The workspace comes from the session created by `clay login`; you do not need to pass a workspace ID.
+The first application should be `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`. If another command still comes first, the installer prints a warning; remove that old PATH entry or rename the PowerShell alias/function it identifies.
 
-## Do I still run `clay:setup`?
+<details>
+<summary><strong>Advanced: what the installer changes</strong></summary>
 
-Usually, no. This Windows installer already handles the CLI, PATH, login, and verification work that the setup skill would normally perform.
+1. Reuses an existing non-Docker WSL distribution or installs Ubuntu 24.04.
+2. Reuses the newest official Clay launcher from a plugin cache, or downloads it from [`clay-run/agent-plugins`](https://github.com/clay-run/agent-plugins).
+3. Installs a forwarder at `/usr/local/bin/clay-windows` inside WSL.
+4. Creates `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd` on Windows.
+5. Adds that directory to the current user's `PATH`.
+6. Verifies the CLI and signs in to Clay.
 
-Use `clay:setup` only if:
+The forwarder finds the newest installed plugin launcher automatically after plugin upgrades.
 
-- `clay whoami` fails;
-- the CLI version is wrong; or
-- your coding app cannot see the Clay plugin after a restart.
+</details>
 
-For a healthy installation, open a new chat and go directly to your Clay request.
-
-## Safer review-first installation
+<details>
+<summary><strong>Advanced: review the script before running it</strong></summary>
 
 If your security policy does not allow piping a downloaded script directly into PowerShell:
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.1.0/install.ps1 -OutFile install-clay-windows.ps1
+Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 -OutFile install-clay-windows.ps1
 notepad .\install-clay-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-clay-windows.ps1
 ```
 
-## Options
+</details>
 
-Download the script first, then pass any of these options:
+<details>
+<summary><strong>Advanced: installer options and complex commands</strong></summary>
+
+Download the script first, then use options if needed:
 
 ```powershell
 .\install-clay-windows.ps1 -Distro Ubuntu-22.04
@@ -175,38 +199,21 @@ Download the script first, then pass any of these options:
 .\install-clay-windows.ps1 -DryRun
 ```
 
-## Troubleshooting
-
-### Windows says a restart is required
-
-Restart Windows, open PowerShell, and paste the same installation line again. The installer is idempotent.
-
-### `clay` is not recognized after installation
-
-Open a new PowerShell or fully restart your coding agent. Existing processes keep the `PATH` they had when they started.
-
-### The plugin is installed but the launcher fails in WSL
-
-Rerun the installer. It copies the required launcher metadata and normalizes Windows CRLF line endings before execution.
-
-### A command with complex JSON loses its quoting
-
-The `.cmd` shim is intended for ordinary Clay commands. For complex nested JSON or advanced queries, call the WSL command directly:
+For commands with complex nested JSON, bypass Windows batch quoting:
 
 ```powershell
 wsl.exe -d Ubuntu-24.04 --exec /usr/local/bin/clay-windows <command> <arguments>
 ```
 
-### Verify each layer
+</details>
 
-```powershell
-wsl.exe --list --verbose
-Get-Command clay
-clay --version
-clay whoami
-```
+## Requirements
+
+- Windows 10 version 2004 or newer, or Windows 11
+- PowerShell 5.1 or newer
+- Internet access during installation and the first CLI launch
+- Permission to enable WSL if it is not already installed
 
 ## Scope and licensing
 
-This repository contains only the Windows bridge and installer. The Clay launcher and CLI are downloaded from Clay's official repository at installation time and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.
-
+This repository contains only the Windows bridge and installer. Clay's launcher and CLI come from Clay's official repository and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.

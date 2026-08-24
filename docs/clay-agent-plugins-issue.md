@@ -21,7 +21,7 @@ https://github.com/danielkupka/clay-cli-windows
 One-line PowerShell install:
 
 ```powershell
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.1.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex
 ```
 
 Would the Clay team be open to linking this from `GETTING_STARTED.md` or the setup skill's Windows troubleshooting section? The wrapper still downloads and runs Clay's official launcher; it does not reimplement the CLI or its authentication.

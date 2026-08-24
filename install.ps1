@@ -225,13 +225,23 @@ function Add-ToUserPath {
 
     $currentUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     $entries = @($currentUserPath -split ';' | Where-Object { $_ })
-    $alreadyPresent = $entries | Where-Object { $_.TrimEnd('\') -ieq $Directory.TrimEnd('\') }
-    if ($alreadyPresent) {
-        return
-    }
+    $otherEntries = @(
+        $entries |
+            Where-Object { $_.TrimEnd('\') -ine $Directory.TrimEnd('\') }
+    )
 
-    $updatedPath = (($entries + $Directory) -join ';') + ';'
+    # Put the bridge first in the user PATH so an older user-installed Clay CLI
+    # does not shadow it. Machine-wide commands or PowerShell aliases can still
+    # take precedence, so those are detected and reported separately below.
+    $updatedPath = (($Directory + $otherEntries) -join ';') + ';'
     [Environment]::SetEnvironmentVariable('Path', $updatedPath, 'User')
+
+    $currentProcessEntries = @($env:Path -split ';' | Where-Object { $_ })
+    $otherProcessEntries = @(
+        $currentProcessEntries |
+            Where-Object { $_.TrimEnd('\') -ine $Directory.TrimEnd('\') }
+    )
+    $env:Path = ($Directory + $otherProcessEntries) -join ';'
 }
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
@@ -240,6 +250,12 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
 
 Write-Host 'Clay CLI for Windows (WSL bridge)' -ForegroundColor Green
 Write-Host 'This installs a Windows command shim; the official Clay Linux CLI runs inside WSL.'
+
+$existingClay = Get-Command clay -All -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($existingClay) {
+    Write-Host "Existing clay command found ($($existingClay.CommandType)): $($existingClay.Definition)"
+    Write-Host 'It will not be removed. The Windows bridge will be placed first in your user PATH.'
+}
 
 $selectedDistro = Install-WslIfNeeded
 $vendorBin = Join-Path $InstallRoot 'vendor\clay\bin'
@@ -303,6 +319,33 @@ if (-not $SkipLogin) {
     }
     if ($LASTEXITCODE -ne 0) {
         throw 'Clay authentication verification failed.'
+    }
+}
+
+if (-not $SkipPathUpdate) {
+    $resolvedClay = Get-Command clay -All -ErrorAction SilentlyContinue | Select-Object -First 1
+    $resolvedApplication = Get-Command clay -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    $expectedShim = [IO.Path]::GetFullPath($windowsShim)
+    $resolvedApplicationPath = if ($resolvedApplication) {
+        [IO.Path]::GetFullPath($resolvedApplication.Source)
+    }
+    else {
+        $null
+    }
+
+    if (-not $resolvedApplicationPath -or $resolvedApplicationPath -ine $expectedShim) {
+        Write-Warning "Another clay application still takes precedence. Expected: $expectedShim"
+        if ($resolvedApplication) {
+            Write-Warning "Currently resolved application: $resolvedApplicationPath"
+        }
+        Write-Warning 'Open a new PowerShell window and run: Get-Command clay -All'
+    }
+    elseif ($resolvedClay.CommandType -ne 'Application') {
+        Write-Warning "A PowerShell $($resolvedClay.CommandType) named clay overrides the installed bridge."
+        Write-Warning 'Remove or rename that alias/function in your PowerShell profile, then reopen PowerShell.'
+    }
+    else {
+        Write-Host "Windows command: $resolvedApplicationPath"
     }
 }
 
