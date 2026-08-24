@@ -210,4 +210,3 @@ clay whoami
 
 This repository contains only the Windows bridge and installer. The Clay launcher and CLI are downloaded from Clay's official repository at installation time and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.
 
-
