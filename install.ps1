@@ -1,11 +1,9 @@
 [CmdletBinding()]
 param(
-    [ValidateNotNullOrEmpty()]
+    [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
     [string]$Distro = 'Ubuntu-24.04',
-
     [ValidateNotNullOrEmpty()]
     [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'Programs\ClayCLI'),
-
     [switch]$SkipLogin,
     [switch]$SkipPathUpdate,
     [switch]$DryRun
@@ -14,340 +12,246 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$OfficialArchiveUrl = 'https://github.com/clay-run/agent-plugins/archive/refs/heads/main.zip'
+# Pin the installer code; the installed CLI can subsequently update independently.
+$UpstreamRevision = 'ba5c72203c87ad2693017e59b7d0a362fe0e01a1'
+$BaseMinimumVersion = [version]'1.4.0'
 
 function Write-Step {
     param([string]$Message)
     Write-Host "`n==> $Message" -ForegroundColor Cyan
 }
 
-function Test-IsAdministrator {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
-function Get-WslDistros {
-    $rawNames = & wsl.exe --list --quiet 2>$null
-    if ($LASTEXITCODE -ne 0) {
-        return @()
-    }
-
-    return @(
-        $rawNames |
-            ForEach-Object { ($_ -replace "`0", '').Trim() } |
-            Where-Object { $_ -and $_ -notlike 'docker-desktop*' }
-    )
-}
-
 function ConvertTo-WslPath {
     param([Parameter(Mandatory)][string]$WindowsPath)
-
     $fullPath = [IO.Path]::GetFullPath($WindowsPath)
     if ($fullPath -notmatch '^([A-Za-z]):\\(.*)$') {
         throw "Only local drive paths are supported: $fullPath"
     }
-
-    $drive = $Matches[1].ToLowerInvariant()
-    $tail = $Matches[2].Replace('\', '/')
-    return "/mnt/$drive/$tail"
+    return "/mnt/$($Matches[1].ToLowerInvariant())/$($Matches[2].Replace('\', '/'))"
 }
 
-function ConvertTo-ShellSingleQuoted {
-    param([Parameter(Mandatory)][string]$Value)
-    $embeddedQuote = "'" + '"' + "'" + '"' + "'"
-    return "'" + $Value.Replace("'", $embeddedQuote) + "'"
+function Get-BridgePath {
+    param([AllowNull()][AllowEmptyString()][string]$CurrentPath, [string]$Directory)
+    $others = @($CurrentPath -split ';' | Where-Object {
+        $_ -and $_.Trim().Trim('"').TrimEnd('\') -ine $Directory.TrimEnd('\')
+    })
+    return (@($Directory) + $others) -join ';'
 }
 
-function Find-ClayLauncher {
-    $patterns = @(
-        (Join-Path $env:USERPROFILE '.codex\plugins\cache\*\clay\*\bin\clay'),
-        (Join-Path $env:USERPROFILE '.claude\plugins\cache\*\clay\*\bin\clay'),
-        (Join-Path $env:USERPROFILE '.cursor\plugins\cache\*\clay\*\bin\clay'),
-        (Join-Path $env:USERPROFILE '.cursor\plugins\local\clay\bin\clay'),
-        (Join-Path $env:USERPROFILE '.config\clay-plugin\clay\bin\clay')
-    )
+function Add-ToUserPath {
+    param([string]$Directory)
+    $current = [Environment]::GetEnvironmentVariable('Path', 'User')
+    [Environment]::SetEnvironmentVariable('Path', (Get-BridgePath $current $Directory), 'User')
+    $env:Path = Get-BridgePath $env:Path $Directory
+}
 
-    $launcherCandidates = foreach ($pattern in $patterns) {
-        Get-Item -Path $pattern -ErrorAction SilentlyContinue
-    }
-
-    return $launcherCandidates | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+function Get-WslDistros {
+    $names = & wsl.exe --list --quiet 2>$null
+    if ($LASTEXITCODE -ne 0) { return @() }
+    return @($names | ForEach-Object { ($_ -replace "\x00", '').Trim() } |
+        Where-Object { $_ -and $_ -notlike 'docker-desktop*' })
 }
 
 function Install-WslIfNeeded {
     if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
-        throw 'wsl.exe is unavailable. Install WSL from Microsoft, restart Windows, and rerun this installer.'
+        throw 'WSL is unavailable. Install WSL from Microsoft, restart Windows, and rerun this installer.'
     }
-
-    $availableDistros = @(Get-WslDistros)
-    if ($availableDistros -contains $Distro) {
-        return $Distro
+    $available = @(Get-WslDistros)
+    if ($available -contains $Distro) { return $Distro }
+    if ($available.Count -gt 0) {
+        if ($script:ExplicitDistro) { throw "Requested WSL distribution $Distro is not installed." }
+        return $available[0]
     }
-
-    if ($availableDistros.Count -gt 0) {
-        Write-Host "Using existing WSL distribution: $($availableDistros[0])"
-        return $availableDistros[0]
-    }
-
-    if ($DryRun) {
-        Write-Host "[dry run] Would install WSL distribution $Distro."
-        return $Distro
-    }
-
+    if ($DryRun) { return $Distro }
     Write-Step "Installing WSL and $Distro"
-    Write-Host 'Windows may show an administrator approval prompt.'
-
-    $arguments = @('--install', '--distribution', $Distro, '--no-launch')
-    if (Test-IsAdministrator) {
-        $process = Start-Process -FilePath 'wsl.exe' -ArgumentList $arguments -Wait -PassThru
+    $process = Start-Process wsl.exe -ArgumentList @('--install', '--distribution', $Distro, '--no-launch') -Verb RunAs -WindowStyle Hidden -Wait -PassThru
+    if ($process.ExitCode -notin @(0, 3010)) { throw "WSL installation failed: $($process.ExitCode)" }
+    if ($process.ExitCode -eq 3010 -or @(Get-WslDistros) -notcontains $Distro) {
+        throw 'Restart Windows, then rerun the same installer command.'
     }
-    else {
-        $process = Start-Process -FilePath 'wsl.exe' -ArgumentList $arguments -Verb RunAs -Wait -PassThru
-    }
-
-    if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) {
-        throw "WSL installation failed with exit code $($process.ExitCode)."
-    }
-
-    $availableDistros = @(Get-WslDistros)
-    if ($availableDistros -notcontains $Distro) {
-        throw "Windows needs to restart to finish installing WSL. Restart, then paste the same installer command again."
-    }
-
     return $Distro
 }
 
-function Copy-OfficialLauncher {
-    param([Parameter(Mandatory)][string]$Destination)
-
-    $downloadRoot = $null
-    try {
-        $launcher = Find-ClayLauncher
-        if ($launcher) {
-            Write-Host "Using Clay launcher from $($launcher.FullName)"
-            $sourceBin = $launcher.Directory.FullName
-        }
-        else {
-            Write-Step 'Downloading the official Clay launcher'
-            $downloadRoot = Join-Path ([IO.Path]::GetTempPath()) ("clay-cli-windows-" + [guid]::NewGuid().ToString('N'))
-            $archivePath = Join-Path $downloadRoot 'agent-plugins.zip'
-            $extractPath = Join-Path $downloadRoot 'extract'
-
-            New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
-            Invoke-WebRequest -Uri $OfficialArchiveUrl -OutFile $archivePath -UseBasicParsing
-            Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
-            $sourceBin = Join-Path $extractPath 'agent-plugins-main\clay\bin'
-            if (-not (Test-Path -LiteralPath (Join-Path $sourceBin 'clay'))) {
-                throw 'The downloaded Clay repository did not contain clay/bin/clay.'
-            }
-        }
-
-        New-Item -ItemType Directory -Path $Destination -Force | Out-Null
-        foreach ($name in @('clay', 'cli-version', 'checksums.txt')) {
-            $sourceFile = Join-Path $sourceBin $name
-            if (-not (Test-Path -LiteralPath $sourceFile)) {
-                throw "The Clay launcher is incomplete: missing $name."
-            }
-            Copy-Item -LiteralPath $sourceFile -Destination (Join-Path $Destination $name) -Force
+function Get-MinimumVersion {
+    $minimum = $BaseMinimumVersion
+    $roots = @(
+        (Join-Path $env:USERPROFILE '.codex'),
+        (Join-Path $env:USERPROFILE '.claude'),
+        (Join-Path $env:USERPROFILE '.cursor')
+    )
+    if ($env:CODEX_HOME) { $roots += $env:CODEX_HOME }
+    if ($env:CLAUDE_CONFIG_DIR) { $roots += $env:CLAUDE_CONFIG_DIR }
+    $patterns = @($roots | ForEach-Object { Join-Path $_ 'plugins\cache\*\clay\*\cli-min-version' })
+    $patterns += Join-Path $env:USERPROFILE '.cursor\plugins\local\clay\cli-min-version'
+    $patterns += Join-Path $env:USERPROFILE '.config\clay-plugin\clay\cli-min-version'
+    foreach ($pattern in $patterns) {
+        foreach ($file in @(Get-Item -Path $pattern -ErrorAction SilentlyContinue)) {
+            $value = (Get-Content -Raw -LiteralPath $file.FullName).Trim()
+            if ($value -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid CLI minimum in $($file.FullName)" }
+            if ([version]$value -gt $minimum) { $minimum = [version]$value }
         }
     }
-    finally {
-        if ($downloadRoot -and (Test-Path -LiteralPath $downloadRoot)) {
-            Remove-Item -LiteralPath $downloadRoot -Recurse -Force
-        }
-    }
+    return $minimum.ToString()
 }
 
-function New-WslForwarder {
-    param(
-        [Parameter(Mandatory)][string]$WindowsHomeWsl,
-        [Parameter(Mandatory)][string]$VendorLauncherWsl
-    )
+function Write-LfFile {
+    param([string]$Path, [string]$Content)
+    [IO.File]::WriteAllText($Path, ($Content -replace "\r\n?", "`n"), [Text.UTF8Encoding]::new($false))
+}
 
-    $quotedHome = ConvertTo-ShellSingleQuoted $WindowsHomeWsl
-    $quotedVendor = ConvertTo-ShellSingleQuoted $VendorLauncherWsl
-
-    # BEGIN_WSL_FORWARDER
-    $template = @'
-#!/bin/sh
-set -eu
-
-windows_home=__WINDOWS_HOME_WSL__
-vendor_launcher=__VENDOR_LAUNCHER_WSL__
-
-# Prefer the newest launcher installed by Codex, Claude Code, or Cursor. The
-# vendored launcher copied by install.ps1 is a stable fallback.
-launcher="$(ls -1dt \
-  "$windows_home"/.codex/plugins/cache/*/clay/*/bin/clay \
-  "$windows_home"/.claude/plugins/cache/*/clay/*/bin/clay \
-  "$windows_home"/.cursor/plugins/cache/*/clay/*/bin/clay \
-  "$windows_home"/.cursor/plugins/local/clay/bin/clay \
-  "$windows_home"/.config/clay-plugin/clay/bin/clay \
-  "$vendor_launcher" \
-  2>/dev/null | head -n1)"
-
-if [ -z "$launcher" ] || [ ! -f "$launcher" ]; then
-  printf '%s\n' '{"error":{"code":"internal_error","message":"clay: no bundled launcher found; rerun the Windows installer"}}' >&2
-  exit 127
+function Get-BootstrapScript {
+    # BEGIN_WSL_BOOTSTRAP
+    return @'
+#!/usr/bin/env bash
+set -euo pipefail
+stage=$1
+minimum=$2
+source "$stage/cli-install-common.sh"
+existing=$(command -v clay || true)
+if [ -z "$existing" ] && { [ -e "$HOME/.local/bin/clay" ] || [ -L "$HOME/.local/bin/clay" ]; }; then
+    existing="$HOME/.local/bin/clay"
 fi
+method=missing
+[ -z "$existing" ] || method=$(clay_install_method "$existing")
 
-source_bin="$(dirname "$launcher")"
-for required in clay cli-version checksums.txt; do
-  if [ ! -f "$source_bin/$required" ]; then
-    printf '%s\n' "clay: launcher is incomplete; missing $required" >&2
-    exit 127
-  fi
-done
-
-version="$(tr -d '\r\n' < "$source_bin/cli-version")"
-normalized_bin="${XDG_CACHE_HOME:-$HOME/.cache}/clay-windows-launcher/$version"
-mkdir -p "$normalized_bin"
-
-# Plugin files may have CRLF line endings on the Windows mount. Normalize the
-# launcher metadata inside WSL before executing it.
-for name in clay cli-version checksums.txt; do
-  temporary="$normalized_bin/$name.$$.tmp"
-  tr -d '\r' < "$source_bin/$name" > "$temporary"
-  mv "$temporary" "$normalized_bin/$name"
-done
-chmod 0755 "$normalized_bin/clay"
-
-exec "$normalized_bin/clay" "$@"
+# Keep a recoverable copy if upstream migrates this user's legacy forwarder.
+if clay_is_legacy "$HOME/.local/bin/clay"; then
+    backup=$(mktemp "$HOME/.local/bin/clay.legacy.XXXXXX")
+    cp -p "$HOME/.local/bin/clay" "$backup"
+    printf 'Legacy forwarder backup: %s\n' "$backup"
+fi
+bash "$stage/install-cli.sh" --version "$minimum"
+case "$method" in
+    native) target=$(clay_resolve_path "$existing") ;;
+    npm|legacy-npm) target="$(npm prefix --global)/bin/clay" ;;
+    *) target="$HOME/.local/bin/clay" ;;
+esac
+kind=$(clay_install_method "$target")
+case "$kind" in native|npm) ;; *) printf 'Unverified CLI installation: %s\n' "$target" >&2; exit 1 ;; esac
+version=$(clay_read_version "$target")
+clay_version_at_least "$version" "$minimum" || { printf 'CLI below minimum\n' >&2; exit 1; }
+target=$(clay_canonical_path "$target")
+printf '%s\n' "$target" > "$stage/cli-path"
+printf 'Verified independent Clay %s at %s\n' "$version" "$target"
 '@
-    # END_WSL_FORWARDER
-
-    return $template.Replace('__WINDOWS_HOME_WSL__', $quotedHome).Replace('__VENDOR_LAUNCHER_WSL__', $quotedVendor)
+    # END_WSL_BOOTSTRAP
 }
 
-function Add-ToUserPath {
-    param([Parameter(Mandatory)][string]$Directory)
-
-    $currentUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $entries = @($currentUserPath -split ';' | Where-Object { $_ })
-    $otherEntries = @(
-        $entries |
-            Where-Object { $_.TrimEnd('\') -ine $Directory.TrimEnd('\') }
-    )
-
-    # Put the bridge first in the user PATH so an older user-installed Clay CLI
-    # does not shadow it. Machine-wide commands or PowerShell aliases can still
-    # take precedence, so those are detected and reported separately below.
-    $updatedPath = (($Directory + $otherEntries) -join ';') + ';'
-    [Environment]::SetEnvironmentVariable('Path', $updatedPath, 'User')
-
-    $currentProcessEntries = @($env:Path -split ';' | Where-Object { $_ })
-    $otherProcessEntries = @(
-        $currentProcessEntries |
-            Where-Object { $_.TrimEnd('\') -ine $Directory.TrimEnd('\') }
-    )
-    $env:Path = ($Directory + $otherProcessEntries) -join ';'
+function Get-ForwarderScript {
+    param([string]$Executable)
+    if (-not $Executable.StartsWith('/') -or $Executable -match "[\r\n]") { throw 'Invalid Linux executable path.' }
+    $quoted = "'" + $Executable.Replace("'", "'"+'"'+"'"+'"'+"'") + "'"
+    return "#!/bin/sh`n# clay-cli-windows independent bridge v0.3.0`nexec $quoted `"$@`"" + "`n"
 }
 
-if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
-    throw 'This installer is only for Windows.'
+function Get-MigrationScript {
+    # BEGIN_WSL_MIGRATION
+    return @'
+#!/usr/bin/env bash
+set -euo pipefail
+stage=$1
+target=$2
+source "$stage/cli-install-common.sh"
+bridge=/usr/local/bin/clay-windows
+# Refuse to replace files that do not belong to this bridge.
+if [ -e "$bridge" ] || [ -L "$bridge" ]; then
+    if ! clay_is_legacy "$bridge" && ! grep -q 'clay-cli-windows independent bridge' "$bridge"; then
+        printf 'Unrecognized file at %s; inspect it before continuing.\n' "$bridge" >&2
+        exit 1
+    fi
+    backup=$(mktemp /usr/local/bin/clay-windows.backup.XXXXXX)
+    cp -p "$bridge" "$backup"
+    printf 'Bridge backup: %s\n' "$backup"
+fi
+install -m 0755 "$stage/forwarder.sh" "$bridge"
+# Early Windows bridge versions invoked /usr/local/bin/clay. Migrate only
+# recognized legacy launchers; native/npm executables at this path stay intact.
+if clay_is_legacy /usr/local/bin/clay; then
+    backup=$(mktemp /usr/local/bin/clay.legacy.XXXXXX)
+    cp -p /usr/local/bin/clay "$backup"
+    link=$(mktemp /usr/local/bin/.clay-link.XXXXXX)
+    rm "$link"
+    ln -s "$target" "$link"
+    mv -Tf "$link" /usr/local/bin/clay
+    printf 'Legacy forwarder backup: %s\n' "$backup"
+elif [ ! -e /usr/local/bin/clay ] && [ ! -L /usr/local/bin/clay ]; then
+    ln -s "$target" /usr/local/bin/clay
+fi
+'@
+    # END_WSL_MIGRATION
 }
 
-Write-Host 'Clay CLI for Windows (WSL bridge)' -ForegroundColor Green
-Write-Host 'This installs a Windows command shim; the official Clay Linux CLI runs inside WSL.'
-
-$existingClay = Get-Command clay -All -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($existingClay) {
-    Write-Host "Existing clay command found ($($existingClay.CommandType)): $($existingClay.Definition)"
-    Write-Host 'It will not be removed. The Windows bridge will be placed first in your user PATH.'
+$script:ExplicitDistro = $PSBoundParameters.ContainsKey('Distro')
+if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This installer is only for Windows.' }
+Write-Host 'Clay CLI for Windows v0.3.0 (independent CLI bridge)' -ForegroundColor Green
+$existingClay = Get-Command clay -ErrorAction SilentlyContinue
+if ($existingClay) { Write-Host "Existing clay command: $($existingClay.Source)" }
+$minimum = Get-MinimumVersion
+if ($DryRun) {
+    Write-Host "Would install/migrate the independent CLI in WSL ($Distro), minimum $minimum."
+    Write-Host "Windows command: $(Join-Path $InstallRoot 'bin\clay.cmd')"
+    Write-Host 'No downloads, files, PATH entries, or authentication were changed.'
+    return
 }
 
 $selectedDistro = Install-WslIfNeeded
-$vendorBin = Join-Path $InstallRoot 'vendor\clay\bin'
-$windowsBin = Join-Path $InstallRoot 'bin'
-$windowsShim = Join-Path $windowsBin 'clay.cmd'
+if ($selectedDistro -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { throw 'Unsupported WSL distribution name.' }
+$userOutput = & wsl.exe -d $selectedDistro --exec id -un
+if ($LASTEXITCODE -ne 0) { throw "Open $selectedDistro once to finish creating its Linux user, then rerun this installer." }
+$linuxUser = ($userOutput -join '').Trim()
+if ($linuxUser -notmatch '^[a-zA-Z_][a-zA-Z0-9_-]*[$]?$') { throw 'Could not identify the WSL user.' }
 
-if ($DryRun) {
-    Write-Step 'Dry-run summary'
-    Write-Host "WSL distribution: $selectedDistro"
-    Write-Host "Install root: $InstallRoot"
-    Write-Host "Windows shim: $windowsShim"
-    Write-Host 'No files, PATH entries, or authentication state were changed.'
-    exit 0
-}
-
-Write-Step 'Staging the official Clay launcher'
-Copy-OfficialLauncher -Destination $vendorBin
-
-Write-Step 'Installing the WSL forwarder'
-$windowsHomeWsl = ConvertTo-WslPath $env:USERPROFILE
-$vendorLauncherWsl = ConvertTo-WslPath (Join-Path $vendorBin 'clay')
-$forwarder = New-WslForwarder -WindowsHomeWsl $windowsHomeWsl -VendorLauncherWsl $vendorLauncherWsl
-$temporaryForwarder = Join-Path ([IO.Path]::GetTempPath()) ("clay-wsl-" + [guid]::NewGuid().ToString('N') + '.sh')
-[IO.File]::WriteAllText($temporaryForwarder, ($forwarder -replace "`r`n", "`n"), [Text.UTF8Encoding]::new($false))
-
+$stage = Join-Path ([IO.Path]::GetTempPath()) ('clay-windows-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $stage | Out-Null
 try {
-    $temporaryForwarderWsl = ConvertTo-WslPath $temporaryForwarder
-    & wsl.exe -d $selectedDistro -u root --exec install -m 0755 $temporaryForwarderWsl /usr/local/bin/clay-windows
-    if ($LASTEXITCODE -ne 0) {
-        throw "Could not install /usr/local/bin/clay-windows inside $selectedDistro."
+    Write-Step "Preparing the official installer (minimum CLI $minimum)"
+    foreach ($name in @('install-cli.sh', 'cli-install-common.sh')) {
+        $url = "https://raw.githubusercontent.com/clay-run/agent-plugins/$UpstreamRevision/clay/scripts/$name"
+        $response = Invoke-WebRequest -Uri $url -UseBasicParsing
+        Write-LfFile (Join-Path $stage $name) $response.Content
     }
+    Write-LfFile (Join-Path $stage 'bootstrap.sh') (Get-BootstrapScript)
+    $stageWsl = ConvertTo-WslPath $stage
+    Write-Step "Installing/verifying Clay for $linuxUser in $selectedDistro"
+    & wsl.exe -d $selectedDistro -u $linuxUser --exec bash "$stageWsl/bootstrap.sh" $stageWsl $minimum
+    if ($LASTEXITCODE -ne 0) { throw 'Official CLI installation failed. Resolve the error above and rerun; do not switch installation methods blindly.' }
+    $executable = (Get-Content -Raw -LiteralPath (Join-Path $stage 'cli-path')).Trim()
+    Write-LfFile (Join-Path $stage 'forwarder.sh') (Get-ForwarderScript $executable)
+    Write-LfFile (Join-Path $stage 'migrate.sh') (Get-MigrationScript)
+    & wsl.exe -d $selectedDistro -u root --exec bash "$stageWsl/migrate.sh" $stageWsl $executable
+    if ($LASTEXITCODE -ne 0) { throw 'CLI installed, but the bridge migration failed. See the error above.' }
+
+    $windowsBin = Join-Path $InstallRoot 'bin'
+    $windowsShim = Join-Path $windowsBin 'clay.cmd'
+    New-Item -ItemType Directory -Path $windowsBin -Force | Out-Null
+    if (Test-Path -LiteralPath $windowsShim) {
+        Copy-Item -LiteralPath $windowsShim -Destination "$windowsShim.backup-$([guid]::NewGuid().ToString('N'))"
+    }
+    $shim = "@echo off`r`nwsl.exe -d $selectedDistro -u $linuxUser --exec /usr/local/bin/clay-windows %*`r`nexit /b %ERRORLEVEL%`r`n"
+    [IO.File]::WriteAllText($windowsShim, $shim, [Text.ASCIIEncoding]::new())
+    if (-not $SkipPathUpdate) { Add-ToUserPath $windowsBin }
+    & $windowsShim --version
+    if ($LASTEXITCODE -ne 0) { throw 'Windows bridge verification failed.' }
+    if (-not $SkipLogin) {
+        & $windowsShim whoami
+        if ($LASTEXITCODE -eq 3) {
+            Write-Step 'Signing in to Clay'
+            & $windowsShim login
+            if ($LASTEXITCODE -ne 0) { throw 'Complete Clay sign-in, then run clay whoami.' }
+            & $windowsShim whoami
+        }
+        if ($LASTEXITCODE -ne 0) { throw 'Authentication check failed. Existing credentials were not removed; inspect the error above.' }
+    }
+    Write-Host "Bridge ready: $windowsShim" -ForegroundColor Green
+    Write-Host "Independent CLI: $executable"
+    Write-Host 'Open a new terminal / restart your coding app, then run: Get-Command clay -All'
+    Write-Host 'Verify: clay whoami. Update the CLI with: clay update. Update the plugin separately.'
 }
 finally {
-    Remove-Item -LiteralPath $temporaryForwarder -Force -ErrorAction SilentlyContinue
-}
-
-Write-Step 'Installing the Windows command'
-New-Item -ItemType Directory -Path $windowsBin -Force | Out-Null
-$shimContent = "@echo off`r`nwsl.exe -d $selectedDistro --exec /usr/local/bin/clay-windows %*`r`nexit /b %ERRORLEVEL%`r`n"
-[IO.File]::WriteAllText($windowsShim, $shimContent, [Text.ASCIIEncoding]::new())
-
-if (-not $SkipPathUpdate) {
-    Add-ToUserPath -Directory $windowsBin
-}
-
-Write-Step 'Verifying the installation'
-& $windowsShim --version
-if ($LASTEXITCODE -ne 0) {
-    throw 'Clay was installed, but the version check failed.'
-}
-
-if (-not $SkipLogin) {
-    & $windowsShim whoami
-    if ($LASTEXITCODE -eq 3) {
-        Write-Step 'Signing in to Clay'
-        & $windowsShim login
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Clay login did not complete successfully.'
-        }
-        & $windowsShim whoami
-    }
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Clay authentication verification failed.'
+    $resolvedStage = [IO.Path]::GetFullPath($stage)
+    $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if ($resolvedStage.StartsWith($tempPrefix, [StringComparison]::OrdinalIgnoreCase) -and
+        [IO.Path]::GetFileName($resolvedStage) -match '^clay-windows-[a-f0-9]{32}$') {
+        Remove-Item -LiteralPath $resolvedStage -Recurse -Force
     }
 }
-
-if (-not $SkipPathUpdate) {
-    $resolvedClay = Get-Command clay -All -ErrorAction SilentlyContinue | Select-Object -First 1
-    $resolvedApplication = Get-Command clay -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    $expectedShim = [IO.Path]::GetFullPath($windowsShim)
-    $resolvedApplicationPath = if ($resolvedApplication) {
-        [IO.Path]::GetFullPath($resolvedApplication.Source)
-    }
-    else {
-        $null
-    }
-
-    if (-not $resolvedApplicationPath -or $resolvedApplicationPath -ine $expectedShim) {
-        Write-Warning "Another clay application still takes precedence. Expected: $expectedShim"
-        if ($resolvedApplication) {
-            Write-Warning "Currently resolved application: $resolvedApplicationPath"
-        }
-        Write-Warning 'Open a new PowerShell window and run: Get-Command clay -All'
-    }
-    elseif ($resolvedClay.CommandType -ne 'Application') {
-        Write-Warning "A PowerShell $($resolvedClay.CommandType) named clay overrides the installed bridge."
-        Write-Warning 'Remove or rename that alias/function in your PowerShell profile, then reopen PowerShell.'
-    }
-    else {
-        Write-Host "Windows command: $resolvedApplicationPath"
-    }
-}
-
-Write-Host "`nClay is ready." -ForegroundColor Green
-Write-Host 'Open a new PowerShell window, then run: clay whoami'

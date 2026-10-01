@@ -1,62 +1,41 @@
 [CmdletBinding()]
-param()
+param([string]$ExportScripts, [string]$FixtureExecutable = "/tmp/clay test/user's cli")
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$installerPath = Join-Path $repositoryRoot 'install.ps1'
-$readmePath = Join-Path $repositoryRoot 'README.md'
-
 $tokens = $null
-$parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile(
-    $installerPath,
-    [ref]$tokens,
-    [ref]$parseErrors
-) | Out-Null
-
-if ($parseErrors.Count -gt 0) {
-    $messages = $parseErrors | ForEach-Object { $_.Message }
-    throw "install.ps1 has syntax errors:`n$($messages -join "`n")"
+$errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+    (Join-Path $repositoryRoot 'install.ps1'), [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw ($errors.Message -join "`n") }
+# Load only function definitions, never execute the installer or change real PATH.
+foreach ($function in $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $false)) {
+    . ([scriptblock]::Create($function.Extent.Text))
 }
-
-$installer = Get-Content -Raw -LiteralPath $installerPath
-$readme = Get-Content -Raw -LiteralPath $readmePath
-
-$requiredInstallerText = @(
-    'clay-run/agent-plugins',
-    '/usr/local/bin/clay-windows',
-    'ClayCLI',
-    'Existing clay command found',
-    'Get-Command clay -All',
-    '$Directory + $otherEntries'
-)
-
-foreach ($required in $requiredInstallerText) {
-    if (-not $installer.Contains($required)) {
-        throw "install.ps1 is missing required text: $required"
-    }
+function Assert-Equal($Actual, $Expected, $Name) {
+    if ($Actual -cne $Expected) { throw "$Name expected [$Expected], got [$Actual]" }
 }
-
-if (-not $readme.Contains('irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex')) {
-    throw 'README.md is missing the pinned one-line installer.'
+Assert-Equal (Get-BridgePath 'C:\old;C:\tools' 'C:\bridge') 'C:\bridge;C:\old;C:\tools' 'PATH order'
+Assert-Equal (Get-BridgePath 'C:\old;C:\BRIDGE\;C:\tools;C:\bridge' 'C:\bridge') 'C:\bridge;C:\old;C:\tools' 'PATH deduplication'
+Assert-Equal (Get-BridgePath '' 'C:\bridge') 'C:\bridge' 'Empty PATH'
+$first = Get-BridgePath 'C:\old;C:\tools' 'C:\bridge'
+Assert-Equal (Get-BridgePath $first 'C:\bridge') $first 'Idempotent PATH'
+if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+    Assert-Equal (ConvertTo-WslPath 'C:\Folder With Spaces\clay') '/mnt/c/Folder With Spaces/clay' 'Path mapping'
 }
+$forwarder = Get-ForwarderScript '/home/user/.local/bin/clay'
+if (-not $forwarder.Contains('"$@"')) { throw 'Forwarder lost argument quoting' }
+if ($forwarder.Contains("`r")) { throw 'Forwarder contains CRLF' }
+$rejected = $false
+try { Get-ForwarderScript "relative`npath" | Out-Null } catch { $rejected = $true }
+if (-not $rejected) { throw 'Invalid executable accepted' }
 
-$match = [regex]::Match(
-    $installer,
-    '(?s)# BEGIN_WSL_FORWARDER.*?\$template = @''\r?\n(?<script>.*?)\r?\n''@.*?# END_WSL_FORWARDER'
-)
-if (-not $match.Success) {
-    throw 'Could not extract the embedded WSL forwarder for validation.'
+if ($ExportScripts) {
+    New-Item -ItemType Directory -Path $ExportScripts -Force | Out-Null
+    Write-LfFile (Join-Path $ExportScripts 'bootstrap.sh') (Get-BootstrapScript)
+    Write-LfFile (Join-Path $ExportScripts 'migrate.sh') (Get-MigrationScript)
+    Write-LfFile (Join-Path $ExportScripts 'forwarder.sh') $forwarder
+    Write-LfFile (Join-Path $ExportScripts 'quoted-forwarder.sh') (Get-ForwarderScript $FixtureExecutable)
 }
-
-$forwarder = $match.Groups['script'].Value
-if (-not $forwarder.StartsWith('#!/bin/sh')) {
-    throw 'The embedded WSL forwarder has no POSIX shell shebang.'
-}
-if (-not $forwarder.Contains('exec "$normalized_bin/clay" "$@"')) {
-    throw 'The embedded WSL forwarder does not preserve CLI arguments.'
-}
-
-Write-Host 'Installer syntax and required-content checks passed.' -ForegroundColor Green
+Write-Host 'Installer syntax, PATH behavior, and forwarder checks passed.'

@@ -7,7 +7,10 @@ Use Clay from PowerShell, Codex, Claude Code, or Cursor on Windows.
 >
 > Choose either installation route below: paste the command into PowerShell yourself, or ask a local coding agent to run it for you. Both routes install the same Windows bridge.
 >
-> Already installed another `clay` command? That is okay. The installer detects it, leaves it untouched, and puts this Windows bridge first in your user PATH.
+> Already installed Clay? Keep it. This installer reuses a compatible independent CLI in WSL and migrates recognized older bridges with backups. Your existing sign-in is preserved.
+
+> [!WARNING]
+> Unofficial community solution. Use at your own risk.
 
 ## The whole setup
 
@@ -53,7 +56,7 @@ Choose **one** of these routes. They produce the same installation.
 Open the Windows **Start** menu, type **PowerShell**, open it, and paste this entire line:
 
 ```powershell
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 | iex
 ```
 
 Press **Enter** and follow the messages:
@@ -69,7 +72,7 @@ Open a **local** Codex, Claude Code, or Cursor chat on the Windows computer you 
 ```text
 I am using Windows. Please run this command in PowerShell and help me complete any approval, restart, or sign-in steps:
 
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 | iex
 
 After installation, verify it with `clay whoami`.
 ```
@@ -138,7 +141,7 @@ Use Clay to find ten SEO agencies in Hamburg and identify two decision-makers at
 Or name the Clay skills explicitly:
 
 ```text
-Use $clay:search to find the companies, then $clay:audiences to save the contacts.
+Use $clay:searches to find the companies, then $clay:audiences to save the contacts.
 ```
 
 For every future chat, just start with **"Use Clay to..."**. You do not need to mention Windows, WSL, this wrapper, or the GitHub repository again.
@@ -156,6 +159,23 @@ Usually, **no**. Clay's official guide covers several operating systems and norm
 If `clay whoami` works and the Clay plugin appears in your app, go directly to your Clay request.
 
 ## Common problems
+
+### My older bridge stopped working after a Clay plugin update
+
+Rerun the one-line installer above. Version 0.3.0 fixes the old dependency on the plugin's `bin/clay` launcher, which newer Clay plugins no longer bundle.
+
+It installs Clay's independent Linux CLI, backs up recognized old bridges, and keeps your existing sign-in. You do not need to uninstall the plugin or delete credentials. Restart your coding app afterwards.
+
+### How do I keep it up to date?
+
+The **CLI and Clay plugin update separately**. For the independent native CLI installed by this bridge, run in PowerShell:
+
+```powershell
+clay update --check
+clay update
+```
+
+Update the Clay plugin through your coding app as well. If a newer plugin requires a newer CLI, rerun this bridge installer: it reads installed plugins' minimum-version requirements. An existing npm installation in WSL is kept as npm; follow `clay update`'s npm instructions in WSL.
 
 ### Windows asks for a restart
 
@@ -179,7 +199,9 @@ Keep it. Run the Windows bridge installer, verify `clay whoami`, and restart the
 
 ### I already installed another Clay CLI
 
-That is okay too. The installer does not uninstall it. It reports the existing command and places this bridge first in your user PATH.
+That is okay too. The installer reuses compatible independent native/npm installations in WSL. It upgrades an older CLI if needed and replaces recognized plugin-based forwarders only after verification, saving backups. Unrecognized Linux executables are not overwritten.
+
+Other Windows commands are not uninstalled. The bridge directory is added first in your **user** PATH; a machine-wide PATH entry or PowerShell alias/function may still take precedence.
 
 After installation, open a new PowerShell window and run:
 
@@ -187,19 +209,19 @@ After installation, open a new PowerShell window and run:
 Get-Command clay -All
 ```
 
-The first application should be `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`. If another command still comes first, the installer prints a warning; remove that old PATH entry or rename the PowerShell alias/function it identifies.
+The first application should be `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`. If another command still comes first and fails, inspect that old PATH entry or PowerShell alias/function before changing it. Older bridges that call `/usr/local/bin/clay` are also repaired when recognized.
 
 <details>
 <summary><strong>Advanced: what the installer changes</strong></summary>
 
 1. Reuses an existing non-Docker WSL distribution or installs Ubuntu 24.04.
-2. Reuses the newest official Clay launcher from a plugin cache, or downloads it from [`clay-run/agent-plugins`](https://github.com/clay-run/agent-plugins).
-3. Installs a forwarder at `/usr/local/bin/clay-windows` inside WSL.
+2. Runs Clay's official installer from a pinned upstream commit. It installs an independent Linux CLI (minimum 1.4.0, or a higher installed-plugin requirement), verifies the release checksum, and preserves compatible newer/native/npm installations. A new native installation goes in `~/.local/bin/clay`.
+3. Installs a forwarder at `/usr/local/bin/clay-windows` inside WSL, pointing to that verified executable. Recognized legacy bridges are backed up before migration.
 4. Creates `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd` on Windows.
 5. Adds that directory to the current user's `PATH`.
-6. Verifies the CLI and signs in to Clay.
+6. Verifies the CLI and existing session; opens sign-in only when authentication is missing.
 
-The forwarder finds the newest installed plugin launcher automatically after plugin upgrades.
+The bridge no longer depends on a plugin cache or plugin-bundled executable. CLI updates replace the independent executable in place. The Windows shim selects the WSL user used during installation so it keeps the same authentication context.
 
 </details>
 
@@ -209,7 +231,7 @@ The forwarder finds the newest installed plugin launcher automatically after plu
 If your security policy does not allow piping a downloaded script directly into PowerShell:
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.2.0/install.ps1 -OutFile install-clay-windows.ps1
+Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 -OutFile install-clay-windows.ps1
 notepad .\install-clay-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-clay-windows.ps1
 ```
@@ -245,4 +267,4 @@ wsl.exe -d Ubuntu-24.04 --exec /usr/local/bin/clay-windows <command> <arguments>
 
 ## Scope and licensing
 
-This repository contains only the Windows bridge and installer. Clay's launcher and CLI come from Clay's official repository and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.
+This repository contains only the Windows bridge and installer. Clay's CLI and its installation scripts come from Clay's official repository and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.

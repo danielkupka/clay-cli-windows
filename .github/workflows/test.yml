@@ -18,3 +18,13 @@ jobs:
       - name: Exercise dry run
         shell: powershell
         run: .\install.ps1 -DryRun -SkipLogin -SkipPathUpdate
+  linux-forwarder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export generated scripts
+        shell: pwsh
+        run: ./tests/Test-Installer.ps1 -ExportScripts .test-output -FixtureExecutable "$env:RUNNER_TEMP/clay test/user's cli"
+      - name: Verify shell syntax and forwarding behavior
+        shell: bash
+        run: bash tests/Test-Forwarder.sh .test-output "$RUNNER_TEMP/clay test/user's cli"
