@@ -267,6 +267,16 @@ wsl.exe -d Ubuntu-24.04 --exec /usr/local/bin/clay-windows <command> <arguments>
 
 </details>
 
+## Daily compatibility checks
+
+GitHub runs the Windows and Linux regression tests every day at 07:17 UTC (09:17 in Berlin during summer, 08:17 during winter), even while your computer is offline. You can also start a check from **Actions → test → Run workflow**.
+
+The daily check flags changes to Clay's official installer, plugin minimum CLI version, setup/update guidance, and stable CLI releases. It also verifies that the pinned installer advertised above matches the repository's installer. Findings appear in the GitHub run summary and mark that run as failed for review; enable GitHub Actions notifications if you want failure emails.
+
+These checks use no paid AI and do not update your computer or prepare repairs. They test first-run scenarios with fixtures and Git Bash/Linux forwarding; your local schedule still handles CLI updates and live sign-in verification when your computer is available.
+
+Maintainers: after reviewing an upstream change and making any required repairs, run `pwsh -File scripts/Check-Upstream.ps1 -RefreshBaseline`, review and commit the updated baseline. Public repositories' schedules can be disabled after 60 days without activity, and GitHub may delay scheduled runs. Check the Actions history periodically.
+
 ## Requirements
 
 - Windows 10 version 2004 or newer, or Windows 11

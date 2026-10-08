@@ -1,0 +1,18 @@
+{
+  "reviewedCommit": "a8132584c193a672024488e558d311480b9c059e",
+  "cliRelease": "clay-cli-v1.9.1",
+  "files": {
+    "GETTING_STARTED.md": "40cf4cb3ec54e7da176b52a446d0349fa9dfaaec",
+    "README.md": "a86de3429693f8a1c361b8b2c3f3c368a700b383",
+    "clay/.claude-plugin/plugin.json": "cf3153c94d4e3066f7deb673ecda1f9eb2c128fd",
+    "clay/cli-min-version": "f8e233b27332b4712304d3226a791d32bdd967c5",
+    "clay/scripts/README.md": "7fa6b6850bcf37f978ef14aac8994069cd92ca46",
+    "clay/scripts/check-cli.sh": "e75b97a074b92b77e1dc3449daf491f511353d78",
+    "clay/scripts/cli-install-common.sh": "2fad17479cc505faf6f948b2a58b1485fdf6a1e1",
+    "clay/scripts/install-cli.sh": "7cbe46a14e2186f5c98b8bb9c13b4299aca65cd1",
+    "clay/skills/cli/SKILL.md": "0429cfd122c131a4421aa0ffb2a2e5f00e855114",
+    "clay/skills/setup/SKILL.md": "265f5ac8d7d3b8d4f1c422792a4b8cd7c7bda4ff",
+    "clay/skills/setup/cursor-install.md": "87c4da0e442d3a7713c9119cd3f17c285a8bd8df",
+    "clay/skills/update/SKILL.md": "bebc80010d4c716b4dcd2611be6beebd1ca6df16"
+  }
+}
