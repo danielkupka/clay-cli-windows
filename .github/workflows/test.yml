@@ -18,6 +18,9 @@ jobs:
       - name: Exercise dry run
         shell: powershell
         run: .\install.ps1 -DryRun -SkipLogin -SkipPathUpdate
+      - name: Test first-run WSL discovery and Git Bash shim
+        shell: powershell
+        run: .\tests\Test-Windows.ps1
   linux-forwarder:
     runs-on: ubuntu-latest
     steps:
