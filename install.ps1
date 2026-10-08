@@ -46,7 +46,10 @@ function Add-ToUserPath {
 }
 
 function Get-WslDistros {
-    $names = & wsl.exe --list --quiet 2>$null
+    # Redirect native stderr in cmd, before PowerShell 5.1 can turn it into a
+    # terminating NativeCommandError when the WSL stub reports "not installed".
+    # /d disables cmd AutoRun; this command contains no interpolated user input.
+    $names = & cmd.exe /d /c 'wsl.exe --list --quiet 2>nul'
     if ($LASTEXITCODE -ne 0) { return @() }
     return @($names | ForEach-Object { ($_ -replace "\x00", '').Trim() } |
         Where-Object { $_ -and $_ -notlike 'docker-desktop*' })
@@ -144,6 +147,36 @@ function Get-ForwarderScript {
     return "#!/bin/sh`n# clay-cli-windows independent bridge v0.3.0`nexec $quoted `"$@`"" + "`n"
 }
 
+function Get-GitBashShimScript {
+    param(
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')][string]$Distro,
+        [ValidatePattern('^[a-zA-Z_][a-zA-Z0-9_-]*[$]?$')][string]$LinuxUser
+    )
+    # Literal template preserves "$@". Validated values are single-quoted so a
+    # Linux account ending in $ is also forwarded literally.
+    return @'
+#!/bin/sh
+# clay-cli-windows independent bridge (Git Bash shim)
+export MSYS_NO_PATHCONV=1
+exec wsl.exe -d '__DISTRO__' -u '__USER__' --exec /usr/local/bin/clay-windows "$@"
+'@.Replace('__DISTRO__', $Distro).Replace('__USER__', $LinuxUser)
+}
+
+function Write-WindowsShims {
+    param([string]$Directory, [string]$Distro, [string]$LinuxUser)
+    $bashShim = Get-GitBashShimScript $Distro $LinuxUser
+    New-Item -ItemType Directory -Path $Directory -Force | Out-Null
+    foreach ($name in @('clay.cmd', 'clay')) {
+        $path = Join-Path $Directory $name
+        if (Test-Path -LiteralPath $path) {
+            Copy-Item -LiteralPath $path -Destination "$path.backup-$([guid]::NewGuid().ToString('N'))"
+        }
+    }
+    $cmdShim = "@echo off`r`nwsl.exe -d $Distro -u $LinuxUser --exec /usr/local/bin/clay-windows %*`r`nexit /b %ERRORLEVEL%`r`n"
+    [IO.File]::WriteAllText((Join-Path $Directory 'clay.cmd'), $cmdShim, [Text.ASCIIEncoding]::new())
+    Write-LfFile (Join-Path $Directory 'clay') ($bashShim + "`n")
+}
+
 function Get-MigrationScript {
     # BEGIN_WSL_MIGRATION
     return @'
@@ -223,12 +256,7 @@ try {
 
     $windowsBin = Join-Path $InstallRoot 'bin'
     $windowsShim = Join-Path $windowsBin 'clay.cmd'
-    New-Item -ItemType Directory -Path $windowsBin -Force | Out-Null
-    if (Test-Path -LiteralPath $windowsShim) {
-        Copy-Item -LiteralPath $windowsShim -Destination "$windowsShim.backup-$([guid]::NewGuid().ToString('N'))"
-    }
-    $shim = "@echo off`r`nwsl.exe -d $selectedDistro -u $linuxUser --exec /usr/local/bin/clay-windows %*`r`nexit /b %ERRORLEVEL%`r`n"
-    [IO.File]::WriteAllText($windowsShim, $shim, [Text.ASCIIEncoding]::new())
+    Write-WindowsShims $windowsBin $selectedDistro $linuxUser
     if (-not $SkipPathUpdate) { Add-ToUserPath $windowsBin }
     & $windowsShim --version
     if ($LASTEXITCODE -ne 0) { throw 'Windows bridge verification failed.' }

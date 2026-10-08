@@ -30,6 +30,13 @@ if ($forwarder.Contains("`r")) { throw 'Forwarder contains CRLF' }
 $rejected = $false
 try { Get-ForwarderScript "relative`npath" | Out-Null } catch { $rejected = $true }
 if (-not $rejected) { throw 'Invalid executable accepted' }
+$bashShim = Get-GitBashShimScript 'Ubuntu-24.04' 'test-user$'
+if (-not $bashShim.Contains('export MSYS_NO_PATHCONV=1')) { throw 'Git Bash path conversion is not disabled' }
+if (-not $bashShim.Contains('"$@"')) { throw 'Git Bash shim lost argument quoting' }
+if (-not $bashShim.Contains("-u 'test-user$'")) { throw 'Git Bash shim lost literal user quoting' }
+$rejected = $false
+try { Get-GitBashShimScript 'Ubuntu;bad' 'user' | Out-Null } catch { $rejected = $true }
+if (-not $rejected) { throw 'Invalid distribution accepted by Git Bash shim' }
 
 if ($ExportScripts) {
     New-Item -ItemType Directory -Path $ExportScripts -Force | Out-Null

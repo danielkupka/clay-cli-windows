@@ -162,6 +162,14 @@ If `clay whoami` works and the Clay plugin appears in your app, go directly to y
 
 ### My older bridge stopped working after a Clay plugin update
 
+An old v0.2.0 bridge can show this error from `clay login` or another command:
+
+```text
+upgrade_required: Clay CLI 0.1.14+... is no longer supported. Upgrade to >= 1.3.0
+```
+
+The exact version numbers can vary. This means the old CLI is below Clay's server minimum, not that your password is wrong. Older bridges may keep using a stale cached launcher even after the Clay plugin updates; newer plugins no longer include `bin/clay`, `cli-version`, or `checksums.txt`.
+
 Rerun the one-line installer above. Version 0.3.0 fixes the old dependency on the plugin's `bin/clay` launcher, which newer Clay plugins no longer bundle.
 
 It installs Clay's independent Linux CLI, backs up recognized old bridges, and keeps your existing sign-in. You do not need to uninstall the plugin or delete credentials. Restart your coding app afterwards.
@@ -218,6 +226,7 @@ The first application should be `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`. 
 2. Runs Clay's official installer from a pinned upstream commit. It installs an independent Linux CLI (minimum 1.4.0, or a higher installed-plugin requirement), verifies the release checksum, and preserves compatible newer/native/npm installations. A new native installation goes in `~/.local/bin/clay`.
 3. Installs a forwarder at `/usr/local/bin/clay-windows` inside WSL, pointing to that verified executable. Recognized legacy bridges are backed up before migration.
 4. Creates `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd` on Windows.
+   The development installer also writes an extensionless `clay` launcher beside it for Git Bash/Claude Code, with MSYS path conversion disabled. Existing copies of both launchers are backed up before replacement.
 5. Adds that directory to the current user's `PATH`.
 6. Verifies the CLI and existing session; opens sign-in only when authentication is missing.
 
