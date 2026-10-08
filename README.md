@@ -56,7 +56,7 @@ Choose **one** of these routes. They produce the same installation.
 Open the Windows **Start** menu, type **PowerShell**, open it, and paste this entire line:
 
 ```powershell
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.1/install.ps1 | iex
 ```
 
 Press **Enter** and follow the messages:
@@ -72,7 +72,7 @@ Open a **local** Codex, Claude Code, or Cursor chat on the Windows computer you 
 ```text
 I am using Windows. Please run this command in PowerShell and help me complete any approval, restart, or sign-in steps:
 
-irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 | iex
+irm https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.1/install.ps1 | iex
 
 After installation, verify it with `clay whoami`.
 ```
@@ -226,7 +226,7 @@ The first application should be `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd`. 
 2. Runs Clay's official installer from a pinned upstream commit. It installs an independent Linux CLI (minimum 1.4.0, or a higher installed-plugin requirement), verifies the release checksum, and preserves compatible newer/native/npm installations. A new native installation goes in `~/.local/bin/clay`.
 3. Installs a forwarder at `/usr/local/bin/clay-windows` inside WSL, pointing to that verified executable. Recognized legacy bridges are backed up before migration.
 4. Creates `%LOCALAPPDATA%\Programs\ClayCLI\bin\clay.cmd` on Windows.
-   The development installer also writes an extensionless `clay` launcher beside it for Git Bash/Claude Code, with MSYS path conversion disabled. Existing copies of both launchers are backed up before replacement.
+   It also writes an extensionless `clay` launcher beside it for Git Bash/Claude Code, with MSYS path conversion disabled. Existing copies of both launchers are backed up before replacement.
 5. Adds that directory to the current user's `PATH`.
 6. Verifies the CLI and existing session; opens sign-in only when authentication is missing.
 
@@ -240,7 +240,7 @@ The bridge no longer depends on a plugin cache or plugin-bundled executable. CLI
 If your security policy does not allow piping a downloaded script directly into PowerShell:
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.0/install.ps1 -OutFile install-clay-windows.ps1
+Invoke-WebRequest https://raw.githubusercontent.com/danielkupka/clay-cli-windows/v0.3.1/install.ps1 -OutFile install-clay-windows.ps1
 notepad .\install-clay-windows.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-clay-windows.ps1
 ```

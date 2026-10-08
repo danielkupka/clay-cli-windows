@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 2026-10-08
 
 - Handle the WSL-not-installed stderr response under Windows PowerShell 5.1 so setup can reach the WSL installation branch.
 - Install an extensionless, LF-only Git Bash `clay` shim alongside `clay.cmd`, disabling MSYS path conversion and preserving the selected WSL user, arguments, and exit code. Back up both existing shims before replacement.
 - Document the literal `upgrade_required` / `no longer supported. Upgrade to >= 1.3.0` symptom on old bridges.
 - Add Windows PowerShell 5.1 and Git Bash regression coverage without changing the machine's WSL installation or credentials.
+
+Existing users: rerun the README's v0.3.1 installer command, then restart your terminal/coding app to receive the Git Bash launcher. Your existing Clay sign-in is preserved.
 
 ## 0.3.0
 

@@ -144,7 +144,7 @@ function Get-ForwarderScript {
     param([string]$Executable)
     if (-not $Executable.StartsWith('/') -or $Executable -match "[\r\n]") { throw 'Invalid Linux executable path.' }
     $quoted = "'" + $Executable.Replace("'", "'"+'"'+"'"+'"'+"'") + "'"
-    return "#!/bin/sh`n# clay-cli-windows independent bridge v0.3.0`nexec $quoted `"$@`"" + "`n"
+    return "#!/bin/sh`n# clay-cli-windows independent bridge v0.3.1`nexec $quoted `"$@`"" + "`n"
 }
 
 function Get-GitBashShimScript {
@@ -216,7 +216,7 @@ fi
 
 $script:ExplicitDistro = $PSBoundParameters.ContainsKey('Distro')
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This installer is only for Windows.' }
-Write-Host 'Clay CLI for Windows v0.3.0 (independent CLI bridge)' -ForegroundColor Green
+Write-Host 'Clay CLI for Windows v0.3.1 (independent CLI bridge)' -ForegroundColor Green
 $existingClay = Get-Command clay -ErrorAction SilentlyContinue
 if ($existingClay) { Write-Host "Existing clay command: $($existingClay.Source)" }
 $minimum = Get-MinimumVersion
