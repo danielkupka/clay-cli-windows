@@ -90,8 +90,12 @@ jobs:
           OPENAI_READY: ${{ secrets.OPENAI_API_KEY != '' }}
           PUBLISH_READY: ${{ secrets.BRIDGE_GITHUB_TOKEN != '' }}
         run: |
-          if [ "$OPENAI_READY" != true ] || [ "$PUBLISH_READY" != true ]; then
-            echo 'New findings need investigation. Set OPENAI_API_KEY and BRIDGE_GITHUB_TOKEN repository secrets to enable it.'
+          if [ "$OPENAI_READY" != true ]; then
+            echo 'Paid investigation is disabled. Review the findings and test results in this run manually; no OpenAI call was made.'
+            exit 1
+          fi
+          if [ "$PUBLISH_READY" != true ]; then
+            echo 'Set BRIDGE_GITHUB_TOKEN to enable draft review pull requests.'
             exit 1
           fi
       - name: Investigate and prepare a repair

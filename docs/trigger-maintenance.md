@@ -15,10 +15,10 @@ The existing GitHub daily schedule stays enabled as a fallback. Its checks do no
    | `TRIGGER_PROJECT_REF` | Trigger.dev project Settings |
    | `TRIGGER_SECRET_KEY` | The project's **Production** API key |
    | `BRIDGE_GITHUB_TOKEN` | A GitHub fine-grained token for **only** `danielkupka/clay-cli-windows`, with Actions, Contents and Pull requests read/write permissions |
-   | `OPENAI_API_KEY` | An OpenAI project API key with API billing enabled |
+   | `OPENAI_API_KEY` | Optional: leave blank to disable paid investigations; add an OpenAI project API key later to enable them |
 
    `.env` is ignored by Git. Keep it on your machine; never paste it into chat or a pull request. Use a dedicated OpenAI project and set its billing alerts. The investigation job has a 15-minute timeout; that limits runtime, not dollars, and an OpenAI project budget is not necessarily a hard spending cap.
-4. Run `npm run maintenance:secrets`. It transfers the GitHub token and OpenAI key to GitHub repository secrets. It transfers only the GitHub coordinator token to Trigger.dev Production. It does not print the keys. The deployment CLI itself keeps using its browser sign-in.
+4. Run `npm run maintenance:secrets`. It transfers the GitHub token and, if supplied, the OpenAI key to GitHub repository secrets. It transfers only the GitHub coordinator token to Trigger.dev Production. It does not print the keys. The deployment CLI itself keeps using its browser sign-in. Without an OpenAI key, checks still run and findings are flagged for manual review.
 5. Run `npm run trigger:deploy`. This deploys the Production task and registers its daily schedule. The script loads `.env`; it does not commit that file.
 6. In Trigger.dev, open the task **clay-windows-daily-maintenance**, run a manual test in **Production**, and verify the linked GitHub run. Configure a **task-failure email alert** for this task in the project's Alerts settings. Findings with a new draft PR deliberately mark the GitHub run as requiring attention, triggering the configured alert. Open its summary for the PR link and test results.
 
@@ -32,7 +32,7 @@ No OpenAI call is made by ordinary checks or by this setup script. A manual Prod
 - The review includes the agent's assessment and observed metadata, including when no repair is warranted. Upstream changes alone do not prove incompatibility.
 - Failed investigation or publishing attempts that did not leave a review branch may be retried on a later day. The coordinator retries at most twice; each investigation has a 15-minute timeout.
 - If a pushed review branch exists but PR creation failed, create its PR manually from GitHub. The run summary includes the branch. If main changed during investigation, rerun against current main.
-- Without the required secrets, new findings produce an explicit setup error instead of an API call. Ordinary tests remain available.
+- Without an OpenAI key, new findings are flagged for manual review instead of invoking paid AI. Ordinary tests remain available.
 
 ## After approving a review
 
