@@ -1,0 +1,196 @@
+name: Clay maintenance
+run-name: Clay maintenance ${{ inputs.correlation || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      correlation:
+        description: Trigger.dev run identifier (optional for manual checks)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: clay-windows-maintenance
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    outputs:
+      base: ${{ steps.report.outputs.base }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read upstream and advertised release
+        id: report
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/Check-Upstream.ps1 -ReportPath .maintenance/report.json
+          $report = Get-Content .maintenance/report.json -Raw | ConvertFrom-Json
+          "base=$($report.bridgeCommit)" | Add-Content $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-input
+          path: .maintenance/report.json
+          include-hidden-files: true
+          retention-days: 30
+
+  existing-tests:
+    needs: inspect
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ needs.inspect.outputs.base }}
+
+  gate:
+    if: always() && needs.inspect.result == 'success'
+    needs: [inspect, existing-tests]
+    runs-on: ubuntu-latest
+    outputs:
+      pending: ${{ steps.gate.outputs.pending }}
+      branch: ${{ steps.gate.outputs.branch }}
+      fingerprint: ${{ steps.gate.outputs.fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.inspect.outputs.base }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: maintenance-input
+          path: .maintenance
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTS_RESULT: ${{ needs.existing-tests.result }}
+        run: node scripts/maintenance-gate.mjs
+
+  investigate:
+    needs: [inspect, gate, existing-tests]
+    if: always() && needs.gate.result == 'success' && needs.gate.outputs.pending == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.inspect.outputs.base }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: maintenance-input
+          path: .maintenance
+      - name: Check required secrets
+        env:
+          OPENAI_READY: ${{ secrets.OPENAI_API_KEY != '' }}
+          PUBLISH_READY: ${{ secrets.BRIDGE_GITHUB_TOKEN != '' }}
+        run: |
+          if [ "$OPENAI_READY" != true ]; then
+            echo 'Paid investigation is disabled. Review the findings and test results in this run manually; no OpenAI call was made.'
+            exit 1
+          fi
+          if [ "$PUBLISH_READY" != true ]; then
+            echo 'Set BRIDGE_GITHUB_TOKEN to enable draft review pull requests.'
+            exit 1
+          fi
+      - name: Investigate and prepare a repair
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTS_RESULT: ${{ needs.existing-tests.result }}
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/maintenance.md
+          output-file: .maintenance/codex-report.md
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+          codex-args: '["--ephemeral", "-c", "sandbox_workspace_write.network_access=true"]'
+      - name: Package the scoped proposal
+        env:
+          FINDING_KEY: ${{ needs.gate.outputs.fingerprint }}
+        run: node scripts/maintenance-patch.mjs capture
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-proposal
+          path: |
+            .maintenance/repair.patch
+            .maintenance/codex-report.md
+          include-hidden-files: true
+          retention-days: 30
+
+  publish-review:
+    needs: [inspect, gate, investigate]
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ needs.gate.outputs.branch }}
+      number: ${{ steps.publish.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.inspect.outputs.base }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: maintenance-proposal
+          path: .maintenance
+      - name: Validate proposed paths
+        env:
+          FINDING_KEY: ${{ needs.gate.outputs.fingerprint }}
+        run: node scripts/maintenance-patch.mjs apply
+      - name: Open draft review
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.BRIDGE_GITHUB_TOKEN }}
+          REVIEW_BRANCH: ${{ needs.gate.outputs.branch }}
+          EXPECTED_BASE: ${{ needs.inspect.outputs.base }}
+        run: |
+          set -euo pipefail
+          current=$(gh api repos/danielkupka/clay-cli-windows/commits/main --jq .sha)
+          if [ "$current" != "$EXPECTED_BASE" ]; then
+            echo 'Main changed during investigation. Replay maintenance against the current main before publishing.'
+            exit 1
+          fi
+          gh auth setup-git
+          git config user.name 'Clay maintenance'
+          git config user.email 'clay-maintenance@users.noreply.github.com'
+          git switch -c "$REVIEW_BRANCH"
+          git commit -m 'Review Clay Windows compatibility findings'
+          git push origin "$REVIEW_BRANCH"
+          gh pr create --draft --base main --head "$REVIEW_BRANCH" --title 'Review Clay Windows compatibility findings' --body-file .maintenance/codex-report.md
+          number=$(gh pr view "$REVIEW_BRANCH" --json number --jq .number)
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+  proposed-tests:
+    needs: publish-review
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ needs.publish-review.outputs.branch }}
+
+  notify:
+    if: always()
+    needs: [inspect, existing-tests, gate, investigate, publish-review, proposed-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report findings and test results
+        env:
+          NEW_REVIEW: ${{ needs.gate.outputs.pending }}
+          INSPECT_RESULT: ${{ needs.inspect.result }}
+          GATE_RESULT: ${{ needs.gate.result }}
+          ORIGINAL_TESTS: ${{ needs.existing-tests.result }}
+          PROPOSED_TESTS: ${{ needs.proposed-tests.result }}
+          REVIEW_NUMBER: ${{ needs.publish-review.outputs.number }}
+        run: |
+          echo "Original Windows/Linux checks: $ORIGINAL_TESTS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Proposed Windows/Linux checks: $PROPOSED_TESTS" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$REVIEW_NUMBER" ]; then
+            echo "Review: https://github.com/danielkupka/clay-cli-windows/pull/$REVIEW_NUMBER" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$INSPECT_RESULT" != success ] || [ "$GATE_RESULT" != success ] || [ "$ORIGINAL_TESTS" != success ] || [ "$NEW_REVIEW" = true ]; then
+            echo 'Compatibility findings, a review PR, or a setup/test failure need attention. See this run summary.'
+            exit 1
+          fi

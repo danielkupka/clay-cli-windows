@@ -1,0 +1,15 @@
+{
+  "name": "clay-windows-maintenance",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test tests/maintenance.test.mjs",
+    "trigger:login": "trigger.dev login",
+    "trigger:deploy": "trigger.dev deploy --env-file .env",
+    "maintenance:secrets": "node --env-file=.env scripts/sync-maintenance-secrets.mjs"
+  },
+  "dependencies": { "@trigger.dev/sdk": "4.7.3" },
+  "devDependencies": { "@types/node": "^22.0.0", "trigger.dev": "4.7.3", "typescript": "~5.9.3" },
+  "overrides": { "ws": "8.22.0", "tar": "7.5.22" }
+}

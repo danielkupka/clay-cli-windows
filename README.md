@@ -269,6 +269,8 @@ wsl.exe -d Ubuntu-24.04 --exec /usr/local/bin/clay-windows <command> <arguments>
 
 ## Daily compatibility checks
 
+An optional [Trigger.dev maintenance pilot](docs/trigger-maintenance.md) can coordinate daily checks and conditional Codex investigations, producing draft repair pull requests for review. It requires one-time connection and secrets setup; installing the Windows bridge does not enable it.
+
 GitHub runs the Windows and Linux regression tests every day at 07:17 UTC (09:17 in Berlin during summer, 08:17 during winter), even while your computer is offline. You can also start a check from **Actions → test → Run workflow**.
 
 The daily check flags changes to Clay's official installer, plugin minimum CLI version, setup/update guidance, and stable CLI releases. It also verifies that the pinned installer advertised above matches the repository's installer. Findings appear in the GitHub run summary and mark that run as failed for review; enable GitHub Actions notifications if you want failure emails.
