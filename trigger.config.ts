@@ -1,7 +1,7 @@
 import { defineConfig } from "@trigger.dev/sdk";
 
-// Set via .env when deploying; a missing project stops deployment.
-const project = process.env.TRIGGER_PROJECT_REF;
+// Public project identifier must also be available during cloud indexing.
+const project = process.env.TRIGGER_PROJECT_REF || "proj_gklsxglubkltxxmulvff";
 if (!project || !/^proj_[a-zA-Z0-9]+$/.test(project)) {
   throw new Error("Fill TRIGGER_PROJECT_REF in .env with your Trigger.dev project reference.");
 }
