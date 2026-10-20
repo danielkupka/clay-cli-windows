@@ -1,10 +1,10 @@
 {
-  "reviewedCommit": "a8132584c193a672024488e558d311480b9c059e",
-  "cliRelease": "clay-cli-v1.9.1",
+  "reviewedCommit": "b9952b68b24f592bfc3b50b3b6e4ec4e7949467d",
+  "cliRelease": "clay-cli-v1.10.0",
   "files": {
     "GETTING_STARTED.md": "40cf4cb3ec54e7da176b52a446d0349fa9dfaaec",
     "README.md": "a86de3429693f8a1c361b8b2c3f3c368a700b383",
-    "clay/.claude-plugin/plugin.json": "cf3153c94d4e3066f7deb673ecda1f9eb2c128fd",
+    "clay/.claude-plugin/plugin.json": "697264def4d1bfbecadf0189e01f71dd055b920c",
     "clay/cli-min-version": "f8e233b27332b4712304d3226a791d32bdd967c5",
     "clay/scripts/README.md": "7fa6b6850bcf37f978ef14aac8994069cd92ca46",
     "clay/scripts/check-cli.sh": "e75b97a074b92b77e1dc3449daf491f511353d78",
