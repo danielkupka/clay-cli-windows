@@ -1,6 +1,6 @@
 {
   "reviewedCommit": "b9952b68b24f592bfc3b50b3b6e4ec4e7949467d",
-  "cliRelease": "clay-cli-v1.10.0",
+  "cliRelease": "clay-cli-v1.11.0",
   "files": {
     "clay/.claude-plugin/plugin.json": "697264def4d1bfbecadf0189e01f71dd055b920c",
     "clay/cli-min-version": "f8e233b27332b4712304d3226a791d32bdd967c5",
