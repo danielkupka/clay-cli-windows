@@ -1,4 +1,9 @@
 import { githubRequest } from "./maintenance-core.mjs";
+import { createHash } from "node:crypto";
+
+export function reviewKey(snapshot) {
+  return createHash('sha256').update(JSON.stringify({release:snapshot.cliRelease,files:Object.entries(snapshot.files).sort(),installer:snapshot.installerMatches,bridge:snapshot.bridgeCommit})).digest('hex');
+}
 
 const upstream = "clay-run/agent-plugins";
 const bridge = "danielkupka/clay-cli-windows";
@@ -70,14 +75,16 @@ export async function collectPublicSnapshot() {
   });
   if (!stable.length) throw new Error("No stable Clay CLI release could be verified.");
   const base = `https://raw.githubusercontent.com/${bridge}/${bridgeHead.sha}`;
-  const [readme, installer] = await Promise.all([rawText(`${base}/README.md`), rawText(`${base}/install.ps1`)]);
+  const [readme, installer, baselineText] = await Promise.all([rawText(`${base}/README.md`), rawText(`${base}/install.ps1`), rawText(`${base}/scripts/upstream-baseline.json`)]);
+  const acceptedBaseline = JSON.parse(baselineText);
+  if (!/^clay-cli-v\d+\.\d+\.\d+$/.test(acceptedBaseline.cliRelease) || !acceptedBaseline.files || !/^[a-f0-9]{40}$/.test(acceptedBaseline.reviewedCommit)) throw new Error('Invalid published baseline');
   const links = [...new Set(readme.match(/https:\/\/raw\.githubusercontent\.com\/danielkupka\/clay-cli-windows\/v\d+\.\d+\.\d+\/install\.ps1/g) ?? [])];
   if (links.length !== 1) throw new Error("README must advertise exactly one pinned installer URL.");
   const advertised = await rawText(links[0]);
   const run = runs.workflow_runs.find(item => item.status === "completed");
   const pendingRun = runs.workflow_runs[0]?.status !== "completed" && runs.workflow_runs.length > 0;
   const jobs = run ? (await githubRequest(undefined, `repos/${bridge}/actions/runs/${run.id}/jobs?per_page=100`)).jobs : [];
-  return { files, upstreamCommit: head.sha, cliRelease: stable[0].tag_name, releaseUrl: stable[0].html_url,
+  return { acceptedBaseline, release: stable[0], files, upstreamCommit: head.sha, cliRelease: stable[0].tag_name, releaseUrl: stable[0].html_url,
     bridgeCommit: bridgeHead.sha, bridgeCommittedAt: bridgeHead.commit.committer.date,
     pendingCreatedAt: pendingRun ? runs.workflow_runs[0].created_at : undefined,
     installerUrl: links[0], installerMatches: normalize(installer) === normalize(advertised), run, pendingRun, jobs };

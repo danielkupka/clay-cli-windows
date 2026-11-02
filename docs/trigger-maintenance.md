@@ -1,25 +1,32 @@
-# Daily monitoring in Trigger.dev
+# Automatic Clay release maintenance
 
-The public monitor is scheduled daily at **09:00 Europe/Berlin**, including while your computer is off. Trigger.dev currently applies a one-hour scheduling window, so execution is between 09:00 and 10:00. GitHub continues running Windows and Linux tests. Trigger.dev watches their results, Clay releases, setup scripts, CLI minimum versions, and the published installer.
+Routine stable CLI updates are checked automatically. No OpenAI key, personal GitHub token, or Trigger deployment secret is required.
 
-## Setup
+## Daily flow
 
-1. Run `npm ci`, then `npm run trigger:login` and complete browser sign-in.
-2. Put your project reference in the ignored `.env` file: `TRIGGER_PROJECT_REF=proj_your_project`.
-3. Run `npm run check`, `npm test`, and `npm run monitor:check`.
-4. Run `npm run trigger:deploy`. The Production task `clay-windows-public-monitor` registers its schedule.
-5. In **Production > Alerts**, create a failed-run email alert. Run a manual test with External ID `alert-delivery-test` to deliberately fail with a clearly labelled test message. Confirm the email arrives. Clear External ID and run a normal check before retiring another monitor.
+1. GitHub's `automatic-release` workflow runs at 06:17 UTC (07:17 Berlin in winter, 08:17 in summer).
+2. It compares official Clay releases and installation metadata with the accepted baseline.
+3. Windows PowerShell/Git Bash fixture tests and Linux forwarding tests run. A separate Linux job downloads the actual official x64 CLI, verifies its GitHub SHA-256 digest, and checks version, help, and forwarding/error exit behavior without Clay credentials.
+4. Only a newer release within the same major version, with unchanged monitored metadata and installer, can be accepted. Every required test must pass. A separate privileged job changes only `cliRelease` in the baseline. Source code is never automatically repaired.
+5. Failed tests, major upgrades, and metadata changes create one GitHub issue assigned to `danielkupka`. The same open issue is reused without daily comments. Scheduled release tests pause for that exact release/metadata/main revision while its issue is open. A manual workflow run retries; changed metadata or main also resumes testing. Later successful checks close automation-owned review issues. GitHub notification delivery follows your account settings; the issue stays visible without email.
+6. Trigger.dev reads the accepted baseline directly from GitHub each run, so version acceptance needs no redeployment. It checks at 09:00 Europe/Berlin within a one-hour scheduling window.
 
-No GitHub token, Trigger secret key, or OpenAI key is needed. Deployment uses the CLI browser sign-in. The task reads public GitHub data; it cannot repair code, push changes, or start workflows.
+Trigger reports `review_tracked` when a finding already has a matching automation-owned issue, avoiding repeat failure emails. Missing or stale automation evidence (48 hours), network errors, and untracked findings still trigger alerts and can repeat until fixed. GitHub's separate daily platform tests can also notify on persistent failures according to account settings. Monitor code changes still require deployment.
 
-## Results and limitations
+## Limits and safeguards
 
-- Healthy means reviewed metadata matches, the published installer matches main, and recent scheduled platform tests passed for current main.
-- Pending means a recent run is queued, or main awaits scheduled tests. Missing evidence becomes a finding after 48 hours.
-- Review required means upstream changes, installer differences, missing/stale tests, or failed checks. Changes alone do not prove incompatibility.
-- Network failures retry once. Access/rate-limit failures do not retry immediately.
-- The reviewed baseline is bundled at deployment. Review changes, update the baseline, and redeploy to acknowledge them. Unresolved findings can alert again on later days; identical error text does not guarantee notification deduplication.
+- Tests provide bounded compatibility evidence, not proof that every Clay command works.
+- Windows first-run/WSL behavior uses fixtures. The real binary test runs on Linux x64, not a fresh Windows WSL installation. Personal sign-in, enrichment, ARM64, and new feature behavior are not tested.
+- Your laptop's installed CLI is unchanged. Update it separately with `clay update`.
+- Only stable releases qualify. Missing or changed asset digests block acceptance.
+- Publishing rechecks release metadata, digest, and main revision; concurrent changes abort the run. The baseline file uses optimistic locking.
+- Test jobs do not receive publishing credentials. Only the recording job has contents/issue write access using GitHub's short-lived workflow token.
+- The existing `test` workflow still runs at 07:17 UTC. Its upstream step records findings without failing just because a release changed; automatic maintenance handles review issues.
 
-Cloud monitoring cannot verify your personal Clay sign-in, update an offline laptop, or prove a fresh Windows installation works. GitHub tests use fixtures; important installer changes still need manual installation checks.
+## Operations
 
-Pause monitoring on Trigger.dev's Schedules page. Removing the Codex reminder does not disable GitHub's separate daily test schedule.
+Enable GitHub Actions and issues. Run **Actions → automatic-release → Run workflow** on `main` to verify. Scheduling requires the workflow on the default branch. Forks must adjust the repository and assignee constants before activation.
+
+For Trigger.dev, run `npm ci`, `npm run trigger:login`, set `TRIGGER_PROJECT_REF` in ignored `.env`, then `npm run trigger:deploy`. Keep the failed-run email alert for infrastructure problems. The production task is `clay-windows-public-monitor`.
+
+Validate changes with `npm test`, `npm run check`, and CI. Disable the GitHub `automatic-release` workflow to stop automatic baseline writes. Pause the Trigger schedule separately to stop monitoring. No AI repairs run.
