@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       decision: ${{ steps.release.outputs.decision }}
+      tracked: ${{ steps.release.outputs.tracked }}
       tag: ${{ steps.release.outputs.tag }}
       digest: ${{ steps.release.outputs.digest }}
       head: ${{ steps.release.outputs.head }}
@@ -29,11 +30,13 @@ jobs:
         run: node scripts/auto-release.mjs inspect
   platform:
     needs: inspect
+    if: needs.inspect.outputs.tracked != 'true'
     uses: ./.github/workflows/test.yml
     with:
       ref: ${{ github.sha }}
   smoke:
     needs: inspect
+    if: needs.inspect.outputs.tracked != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -51,7 +54,7 @@ jobs:
         run: node scripts/auto-release.mjs smoke
   record:
     needs: [inspect, platform, smoke]
-    if: always() && needs.inspect.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: always() && needs.inspect.result == 'success' && needs.inspect.outputs.tracked != 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

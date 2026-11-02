@@ -27,7 +27,9 @@ export async function inspect() {
   const s = await collectPublicSnapshot();
   const decision = releaseDecision(s);
   const asset = verifiedAsset(s.release);
-  for (const [key,value] of Object.entries({decision,tag:s.cliRelease,digest:asset.digest,head:s.bridgeCommit})) {
+  const marker=`<!-- clay-auto-review:${reviewKey(s)} -->`;
+  const tracked=process.env.GITHUB_EVENT_NAME==='schedule' && (await openIssues(undefined,githubRequest)).some(i=>i.user?.login==='github-actions[bot]' && i.body?.includes(marker));
+  for (const [key,value] of Object.entries({decision,tracked:String(tracked),tag:s.cliRelease,digest:asset.digest,head:s.bridgeCommit})) {
     if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
   }
   console.log(JSON.stringify({decision,release:s.cliRelease,head:s.bridgeCommit}));

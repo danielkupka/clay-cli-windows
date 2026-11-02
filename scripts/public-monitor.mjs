@@ -2,7 +2,7 @@ import { githubRequest } from "./maintenance-core.mjs";
 import { createHash } from "node:crypto";
 
 export function reviewKey(snapshot) {
-  return createHash('sha256').update(JSON.stringify({release:snapshot.cliRelease,files:Object.entries(snapshot.files).sort(),installer:snapshot.installerMatches})).digest('hex');
+  return createHash('sha256').update(JSON.stringify({release:snapshot.cliRelease,files:Object.entries(snapshot.files).sort(),installer:snapshot.installerMatches,bridge:snapshot.bridgeCommit})).digest('hex');
 }
 
 const upstream = "clay-run/agent-plugins";

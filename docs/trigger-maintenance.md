@@ -8,10 +8,10 @@ Routine stable CLI updates are checked automatically. No OpenAI key, personal Gi
 2. It compares official Clay releases and installation metadata with the accepted baseline.
 3. Windows PowerShell/Git Bash fixture tests and Linux forwarding tests run. A separate Linux job downloads the actual official x64 CLI, verifies its GitHub SHA-256 digest, and checks version, help, and forwarding/error exit behavior without Clay credentials.
 4. Only a newer release within the same major version, with unchanged monitored metadata and installer, can be accepted. Every required test must pass. A separate privileged job changes only `cliRelease` in the baseline. Source code is never automatically repaired.
-5. Failed tests, major upgrades, and metadata changes create one GitHub issue assigned to `danielkupka`. The same open issue is reused without daily comments. Later successful checks close automation-owned review issues. GitHub notification delivery follows your account settings; the issue stays visible without email.
+5. Failed tests, major upgrades, and metadata changes create one GitHub issue assigned to `danielkupka`. The same open issue is reused without daily comments. Scheduled release tests pause for that exact release/metadata/main revision while its issue is open. A manual workflow run retries; changed metadata or main also resumes testing. Later successful checks close automation-owned review issues. GitHub notification delivery follows your account settings; the issue stays visible without email.
 6. Trigger.dev reads the accepted baseline directly from GitHub each run, so version acceptance needs no redeployment. It checks at 09:00 Europe/Berlin within a one-hour scheduling window.
 
-Trigger reports `review_tracked` when a finding already has a matching automation-owned issue, avoiding repeat failure emails. Missing or stale automation evidence (48 hours), network errors, and untracked findings still trigger alerts and can repeat until fixed. Monitor code changes still require deployment.
+Trigger reports `review_tracked` when a finding already has a matching automation-owned issue, avoiding repeat failure emails. Missing or stale automation evidence (48 hours), network errors, and untracked findings still trigger alerts and can repeat until fixed. GitHub's separate daily platform tests can also notify on persistent failures according to account settings. Monitor code changes still require deployment.
 
 ## Limits and safeguards
 
