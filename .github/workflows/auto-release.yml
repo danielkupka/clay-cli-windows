@@ -1,0 +1,75 @@
+name: automatic-release
+on:
+  pull_request:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: clay-release-maintenance
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      decision: ${{ steps.release.outputs.decision }}
+      tag: ${{ steps.release.outputs.tag }}
+      digest: ${{ steps.release.outputs.digest }}
+      head: ${{ steps.release.outputs.head }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - id: release
+        run: node scripts/auto-release.mjs inspect
+  platform:
+    needs: inspect
+    uses: ./.github/workflows/test.yml
+    with:
+      ref: ${{ github.sha }}
+  smoke:
+    needs: inspect
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Test official Linux binary without credentials
+        env:
+          RELEASE_TAG: ${{ needs.inspect.outputs.tag }}
+          RELEASE_DIGEST: ${{ needs.inspect.outputs.digest }}
+        run: node scripts/auto-release.mjs smoke
+  record:
+    needs: [inspect, platform, smoke]
+    if: always() && needs.inspect.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Accept version only or create one review issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_HEAD: ${{ needs.inspect.outputs.head }}
+          RELEASE_TAG: ${{ needs.inspect.outputs.tag }}
+          RELEASE_DIGEST: ${{ needs.inspect.outputs.digest }}
+          PLATFORM_RESULT: ${{ needs.platform.result }}
+          SMOKE_RESULT: ${{ needs.smoke.result }}
+        run: node scripts/auto-release.mjs finish

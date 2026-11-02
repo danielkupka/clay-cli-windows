@@ -38,7 +38,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./scripts/Check-Upstream.ps1
+        run: ./scripts/Check-Upstream.ps1 -ReportPath .test-output/upstream.json
   powershell:
     runs-on: windows-latest
     steps:
