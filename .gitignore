@@ -3,3 +3,9 @@ Thumbs.db
 *.log
 .test-install/
 .test-output/
+.env
+.env.*
+!.env.example
+node_modules/
+.trigger/
+.maintenance/

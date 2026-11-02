@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([switch]$RefreshBaseline)
+param([switch]$RefreshBaseline, [string]$ReportPath)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -32,8 +32,12 @@ if ($RefreshBaseline) {
 }
 $baseline = Get-Content -LiteralPath $baselinePath -Raw | ConvertFrom-Json -AsHashtable
 $findings = [Collections.Generic.List[string]]::new()
+$changedFiles = [ordered]@{}
 foreach ($path in @(@($baseline.files.Keys) + @($files.Keys) | Sort-Object -Unique)) {
-    if ($baseline.files[$path] -ne $files[$path]) { $findings.Add("Upstream file changed: $path") }
+    if ($baseline.files[$path] -ne $files[$path]) {
+        $findings.Add("Upstream file changed: $path")
+        $changedFiles[$path] = $files[$path]
+    }
 }
 if ($baseline.cliRelease -ne $snapshot.cliRelease) {
     $findings.Add("New stable CLI release: $($baseline.cliRelease) -> $($snapshot.cliRelease). Release notes: $($stable[0].html_url)")
@@ -46,6 +50,22 @@ if ($links.Count -ne 1) { throw 'README must advertise exactly one pinned instal
 $advertised = (Invoke-WebRequest -Uri $links[0]).Content -replace "`r`n", "`n"
 $local = (Get-Content -LiteralPath (Join-Path $repoRoot 'install.ps1') -Raw) -replace "`r`n", "`n"
 if ($advertised -cne $local) { $findings.Add('The advertised release installer differs from the current installer. Review whether a new release is required.') }
+if ($ReportPath) {
+    $parent = Split-Path -Parent $ReportPath
+    if ($parent) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+    [ordered]@{
+        bridgeCommit = (& git -C $repoRoot rev-parse HEAD)
+        reviewedCommit = $baseline.reviewedCommit
+        upstreamCommit = $commit.sha
+        changedFiles = $changedFiles
+        cliRelease = $snapshot.cliRelease
+        releaseChanged = ($baseline.cliRelease -ne $snapshot.cliRelease)
+        releaseUrl = $stable[0].html_url
+        installerChanged = ($advertised -cne $local)
+        installerHash = ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($local))))
+        findings = @($findings.ToArray())
+    } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $ReportPath -Encoding utf8
+}
 
 $summary = @(
     '## Daily Clay compatibility check',
@@ -59,4 +79,4 @@ if ($findings.Count) {
 } else { $summary += 'No monitored upstream changes or unpublished installer differences detected.' }
 $summary | Write-Output
 if ($env:GITHUB_STEP_SUMMARY) { $summary | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY }
-if ($findings.Count) { throw 'Compatibility review required. See the run summary; changes are not automatically classified as defects.' }
+if ($findings.Count -and -not $ReportPath) { throw 'Compatibility review required. See the run summary; changes are not automatically classified as defects.' }
