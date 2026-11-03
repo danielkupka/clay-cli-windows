@@ -5,9 +5,10 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
-    "monitor:check": "node --input-type=module -e \"import baseline from './scripts/upstream-baseline.json' with {type:'json'}; import {assessSnapshot,collectPublicSnapshot} from './scripts/public-monitor.mjs'; const result=assessSnapshot(baseline,await collectPublicSnapshot()); console.log(JSON.stringify(result,null,2)); if(result.status==='review_required') process.exitCode=1;\"",
+    "monitor:check": "node scripts/check-public.mjs",
     "trigger:login": "trigger login",
-    "trigger:deploy": "trigger deploy --env-file .env"
+    "trigger:deploy": "trigger deploy --env-file .env",
+    "cloud:check": "npm run check && npm test"
   },
   "dependencies": { "@trigger.dev/sdk": "4.7.3" },
   "devDependencies": { "@types/node": "^22.0.0", "trigger.dev": "4.7.3", "typescript": "~5.9.3" },
