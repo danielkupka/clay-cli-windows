@@ -6,6 +6,8 @@ Use the published `clay-cli-windows` environment for investigation and repairs. 
 
 Start from current main, inspect repository instructions and dirty state, and run:
 
+The currently published environment bundles Node 22 and PowerShell in `/workspace/.cloud-tools`. Its default shell initially exposes Node 24 and no PowerShell. In that environment, run `source /workspace/.cloud-tools/activate.sh` in each shell that runs the checks, then verify `node --version` and `pwsh --version`. Put this activation instruction in the environment's start skill; repository changes do not update that saved configuration.
+
 ```sh
 npm ci
 npm run cloud:check
@@ -18,6 +20,12 @@ npm run monitor:check
 `cloud:check` runs TypeScript and unit tests only; the following commands supply installer, Linux forwarding and public-state evidence. `monitor:check` reads the accepted baseline from GitHub main, not the Cloud workspace's potentially older copy. Exit 0 means healthy, 1 means findings or a failed request, and 2 means pending CI evidence. Pending is not a full acceptance pass. Public requests require access to api.github.com and raw.githubusercontent.com. Real release smoke tests additionally require github.com and its release download hosts.
 
 Do not copy personal `.env` files, Clay credentials, or subscription login files into this environment. Routine checks use public information. Keep GitHub publishing actions separate from validation.
+
+### Network readiness
+
+The first published-environment validation on November 3, 2026 passed local checks but could not connect to the configured proxy. Its allowlist also lacked `api.github.com`. Review the environment's allowed domains for `api.github.com`, `raw.githubusercontent.com`, `github.com`, and GitHub's release asset host `release-assets.githubusercontent.com`. Preserve the managed proxy and security controls. Save and republish, then test in a new task: existing tasks retain their original configuration.
+
+Verify direct requests using the environment's supported proxy configuration, then run `npm run monitor:check` and the credential-free release smoke test. If the proxy is still unreachable, report it as an environment/platform failure; do not disable the proxy or bypass the network policy. Connector-fetched snapshots and CI results are useful independent evidence but do not prove Cloud egress works.
 
 ## Reusable repair request
 
