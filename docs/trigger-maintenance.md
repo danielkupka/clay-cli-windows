@@ -2,6 +2,8 @@
 
 Routine stable CLI updates are checked automatically. No OpenAI key, personal GitHub token, or Trigger deployment secret is required.
 
+For investigation and reviewed repairs in a published Codex Cloud environment, see [Codex Cloud maintenance](codex-cloud-maintenance.md). Cloud environment publication does not enable automatic repairs or replace the watchdog.
+
 ## Daily flow
 
 1. GitHub's `automatic-release` workflow runs at 06:17 UTC (07:17 Berlin in winter, 08:17 in summer).
