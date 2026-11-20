@@ -10,7 +10,16 @@
     "trigger:deploy": "trigger deploy --env-file .env",
     "cloud:check": "npm run check && npm test"
   },
-  "dependencies": { "@trigger.dev/sdk": "4.7.3" },
-  "devDependencies": { "@types/node": "^22.0.0", "trigger.dev": "4.7.3", "typescript": "~5.9.3" },
-  "overrides": { "ws": "8.22.0", "tar": "7.5.22" }
+  "dependencies": {
+    "@trigger.dev/sdk": "4.8.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "trigger.dev": "4.8.7",
+    "typescript": "~5.9.3"
+  },
+  "overrides": {
+    "ws": "8.22.0",
+    "tar": "7.5.22"
+  }
 }
