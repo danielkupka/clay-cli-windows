@@ -7,7 +7,7 @@ export function reviewKey(snapshot) {
 
 const upstream = "clay-run/agent-plugins";
 const bridge = "danielkupka/clay-cli-windows";
-const monitored = /(^GETTING_STARTED\.md$|^README\.md$|^clay\/(scripts\/|skills\/(setup|update|cli)\/|cli-min-version$|\.claude-plugin\/plugin\.json$))/;
+export const monitored = /(^GETTING_STARTED\.md$|^README\.md$|^clay\/(scripts\/|skills\/(setup|cli-setup|update|cli)\/|cli-min-version$|\.claude-plugin\/plugin\.json$))/;
 const normalize = text => text.replace(/\r\n/g, "\n");
 async function rawText(url) {
   const response = await fetch(url, { signal: AbortSignal.timeout(30000) });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessSnapshot } from "../scripts/public-monitor.mjs";
+import { assessSnapshot, monitored } from "../scripts/public-monitor.mjs";
 const now = Date.parse("2026-10-16T09:00:00Z");
 const baseline = { reviewedCommit: "old", cliRelease: "clay-cli-v1.10.0", files: { "clay/cli-min-version": "minimum" } };
 const snapshot = { files: { ...baseline.files }, upstreamCommit: "new", cliRelease: baseline.cliRelease, installerMatches: true,
@@ -38,4 +38,14 @@ test("old commit evidence waits for fresh tests, then escalates after 48 hours",
   const changed={...snapshot,bridgeCommit:'latest',bridgeCommittedAt:new Date(now).toISOString()};
   assert.equal(assessSnapshot(baseline,changed,now).status,'pending');
   assert.equal(assessSnapshot(baseline,changed,now+49*3600000).status,'review_required');
+});
+
+test('monitor covers renamed CLI setup guidance and detects later edits', () => {
+  for (const path of ['clay/skills/cli-setup/SKILL.md', 'clay/skills/cli-setup/cursor-install.md', 'clay/skills/setup/SKILL.md']) {
+    assert.equal(monitored.test(path), true);
+    const before = {...baseline, files: {[path]: 'old'}};
+    const after = {...snapshot, cliRelease: before.cliRelease, files: {[path]: 'new'}};
+    assert.ok(assessSnapshot(before, after, now).findings.includes(`Upstream file changed: ${path}`));
+  }
+  assert.equal(monitored.test('clay/skills/searches/SKILL.md'), false);
 });

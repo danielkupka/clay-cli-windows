@@ -152,7 +152,7 @@ For every future chat, just start with **"Use Clay to..."**. You do not need to 
 - The Clay plugin appears in your coding app.
 - A new chat recognizes a request beginning with **"Use Clay to..."**.
 
-## Do I run `clay:setup`?
+## Do I run `clay:cli-setup`?
 
 Usually, **no**. Clay's official guide covers several operating systems and normally asks the plugin's setup skill to install the CLI, configure PATH, and sign in. This Windows installer already performs those jobs.
 
@@ -289,3 +289,22 @@ Maintainers: after reviewing an upstream change and making any required repairs,
 ## Scope and licensing
 
 This repository contains only the Windows bridge and installer. Clay's CLI and its installation scripts come from Clay's official repository and remain governed by Clay's terms. The wrapper code in this repository is MIT licensed.
+
+## Updating an existing installation
+
+Updates on the repository owner's computer do not update your computer. In PowerShell, run:
+
+```powershell
+clay update
+clay --version
+```
+
+Update the Clay plugin separately in your coding app. For Codex:
+
+```powershell
+codex plugin marketplace upgrade clay-plugins
+```
+
+Restart Codex after a plugin update. Clay plugin 2.40.0 requires CLI 1.22.0 or newer.
+If you still have an old cached-launcher installation, follow the migration instructions above.
+The GitHub checks record tested compatibility; they do not push software updates to installed bridges.

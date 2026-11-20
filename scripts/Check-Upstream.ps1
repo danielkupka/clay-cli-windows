@@ -17,7 +17,7 @@ $tree = Get-GitHubJson "repos/clay-run/agent-plugins/git/trees/$($commit.sha)?re
 if ($tree.truncated) { throw 'Upstream file listing was truncated; cannot establish a complete baseline.' }
 $files = [ordered]@{}
 foreach ($entry in $tree.tree | Sort-Object path) {
-    if ($entry.type -eq 'blob' -and $entry.path -match '(^GETTING_STARTED\.md$|^README\.md$|^clay/(scripts/|skills/(setup|update|cli)/|cli-min-version$|\.claude-plugin/plugin\.json$))') {
+    if ($entry.type -eq 'blob' -and $entry.path -match '(^GETTING_STARTED\.md$|^README\.md$|^clay/(scripts/|skills/(setup|cli-setup|update|cli)/|cli-min-version$|\.claude-plugin/plugin\.json$))') {
         $files[$entry.path] = $entry.sha
     }
 }
