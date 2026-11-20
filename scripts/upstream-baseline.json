@@ -1,18 +1,18 @@
 {
-  "reviewedCommit": "703099008a0e50016db4d79e96b2b66b21119410",
-  "cliRelease": "clay-cli-v1.16.0",
+  "reviewedCommit": "934bf16b57d45d704e828c95ca8c189e6c54d178",
+  "cliRelease": "clay-cli-v1.22.0",
   "files": {
-    "GETTING_STARTED.md": "40cf4cb3ec54e7da176b52a446d0349fa9dfaaec",
-    "README.md": "a86de3429693f8a1c361b8b2c3f3c368a700b383",
-    "clay/.claude-plugin/plugin.json": "b4b3f520cf64397a7df8ed82a1e085159ca17646",
-    "clay/cli-min-version": "850e742404bba0ccc0dde11877e9737d6fe8f479",
-    "clay/scripts/README.md": "7fa6b6850bcf37f978ef14aac8994069cd92ca46",
-    "clay/scripts/check-cli.sh": "e75b97a074b92b77e1dc3449daf491f511353d78",
+    "clay/.claude-plugin/plugin.json": "5aed0dc5f07e1f38135286fe79c0bb32283f728f",
+    "clay/cli-min-version": "57807d6d0d0c0a1a50ff3aacaff26d941b47b125",
+    "clay/scripts/check-cli.sh": "1bd9d49a14615e3b31e807362a482ecf9a16bbbf",
     "clay/scripts/cli-install-common.sh": "2fad17479cc505faf6f948b2a58b1485fdf6a1e1",
     "clay/scripts/install-cli.sh": "7cbe46a14e2186f5c98b8bb9c13b4299aca65cd1",
-    "clay/skills/cli/SKILL.md": "2aa68e73f62ff1997b699362a0d5b66e650385c9",
-    "clay/skills/setup/SKILL.md": "265f5ac8d7d3b8d4f1c422792a4b8cd7c7bda4ff",
-    "clay/skills/setup/cursor-install.md": "87c4da0e442d3a7713c9119cd3f17c285a8bd8df",
-    "clay/skills/update/SKILL.md": "bebc80010d4c716b4dcd2611be6beebd1ca6df16"
+    "clay/scripts/README.md": "c5ed0341b751ff7393c1d6ae1573abf7f9dd2bf1",
+    "clay/skills/cli-setup/cursor-install.md": "90e8bdbc36b5946ff6ebceda2f69aaa8a987d366",
+    "clay/skills/cli-setup/SKILL.md": "3da2bbf5f30ced0f358740bb3dedb634ab9dbd31",
+    "clay/skills/cli/SKILL.md": "8942d6e59fee4760d79808c4e7dd37b51db22a3a",
+    "clay/skills/update/SKILL.md": "042dbb71996fa9929516446383252c1d299d4f3d",
+    "GETTING_STARTED.md": "60cdc86d6e612b368ce57173059d5196025f86dd",
+    "README.md": "a86de3429693f8a1c361b8b2c3f3c368a700b383"
   }
 }
