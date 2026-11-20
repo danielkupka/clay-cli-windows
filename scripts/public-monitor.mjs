@@ -57,14 +57,14 @@ export function assessSnapshot(baseline, current, now = Date.now()) {
   };
 }
 
-export async function collectPublicSnapshot() {
+export async function collectPublicSnapshot(token = undefined) {
   const [head, bridgeHead, releases, runs] = await Promise.all([
-    githubRequest(undefined, `repos/${upstream}/commits/main`),
-    githubRequest(undefined, `repos/${bridge}/commits/main`),
-    githubRequest(undefined, `repos/${upstream}/releases?per_page=100`),
-    githubRequest(undefined, `repos/${bridge}/actions/workflows/test.yml/runs?event=schedule&per_page=5`)
+    githubRequest(token, `repos/${upstream}/commits/main`),
+    githubRequest(token, `repos/${bridge}/commits/main`),
+    githubRequest(token, `repos/${upstream}/releases?per_page=100`),
+    githubRequest(token, `repos/${bridge}/actions/workflows/test.yml/runs?event=schedule&per_page=5`)
   ]);
-  const tree = await githubRequest(undefined, `repos/${upstream}/git/trees/${head.sha}?recursive=1`);
+  const tree = await githubRequest(token, `repos/${upstream}/git/trees/${head.sha}?recursive=1`);
   if (tree.truncated) throw new Error("Upstream tree was truncated; a complete comparison is unavailable.");
   const files = Object.fromEntries(tree.tree.filter(item => item.type === "blob" && monitored.test(item.path)).map(item => [item.path, item.sha]));
   const stable = releases.filter(item => !item.draft && !item.prerelease && /^clay-cli-v\d+\.\d+\.\d+$/.test(item.tag_name));
@@ -83,7 +83,7 @@ export async function collectPublicSnapshot() {
   const advertised = await rawText(links[0]);
   const run = runs.workflow_runs.find(item => item.status === "completed");
   const pendingRun = runs.workflow_runs[0]?.status !== "completed" && runs.workflow_runs.length > 0;
-  const jobs = run ? (await githubRequest(undefined, `repos/${bridge}/actions/runs/${run.id}/jobs?per_page=100`)).jobs : [];
+  const jobs = run ? (await githubRequest(token, `repos/${bridge}/actions/runs/${run.id}/jobs?per_page=100`)).jobs : [];
   return { acceptedBaseline, release: stable[0], files, upstreamCommit: head.sha, cliRelease: stable[0].tag_name, releaseUrl: stable[0].html_url,
     bridgeCommit: bridgeHead.sha, bridgeCommittedAt: bridgeHead.commit.committer.date,
     pendingCreatedAt: pendingRun ? runs.workflow_runs[0].created_at : undefined,

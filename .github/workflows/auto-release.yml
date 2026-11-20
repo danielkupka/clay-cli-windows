@@ -6,6 +6,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
+  issues: read
 concurrency:
   group: clay-release-maintenance
   cancel-in-progress: false
@@ -27,6 +29,8 @@ jobs:
         with:
           node-version: '22'
       - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/auto-release.mjs inspect
   platform:
     needs: inspect
@@ -58,6 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: write
       issues: write
     steps:

@@ -24,11 +24,11 @@ export function verifiedAsset(release) {
   return asset;
 }
 export async function inspect() {
-  const s = await collectPublicSnapshot();
+  const s = await collectPublicSnapshot(process.env.GH_TOKEN);
   const decision = releaseDecision(s);
   const asset = verifiedAsset(s.release);
   const marker=`<!-- clay-auto-review:${reviewKey(s)} -->`;
-  const tracked=process.env.GITHUB_EVENT_NAME==='schedule' && (await openIssues(undefined,githubRequest)).some(i=>i.user?.login==='github-actions[bot]' && i.body?.includes(marker));
+  const tracked=process.env.GITHUB_EVENT_NAME==='schedule' && (await openIssues(process.env.GH_TOKEN,githubRequest)).some(i=>i.user?.login==='github-actions[bot]' && i.body?.includes(marker));
   for (const [key,value] of Object.entries({decision,tracked:String(tracked),tag:s.cliRelease,digest:asset.digest,head:s.bridgeCommit})) {
     if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
   }
@@ -79,7 +79,7 @@ async function openIssues(token, request) {
 export async function finish({env=process.env,collect=collectPublicSnapshot,request=githubRequest}={}) {
   const token=env.GH_TOKEN;
   if(!token) throw new Error('Missing workflow token');
-  const s=await collect();
+  const s=await collect(token);
   // Never acknowledge a release against a different main revision or different asset.
   if(s.bridgeCommit!==env.TESTED_HEAD || s.cliRelease!==env.RELEASE_TAG || verifiedAsset(s.release).digest!==env.RELEASE_DIGEST) throw new Error('Repository or release changed during testing; retry on the next run');
   const decision=releaseDecision(s);
