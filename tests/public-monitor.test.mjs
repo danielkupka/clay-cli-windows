@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assessSnapshot, monitored } from "../scripts/public-monitor.mjs";
+import { assessSnapshot, monitored, collectPublicSnapshot } from "../scripts/public-monitor.mjs";
 const now = Date.parse("2026-10-16T09:00:00Z");
 const baseline = { reviewedCommit: "old", cliRelease: "clay-cli-v1.10.0", files: { "clay/cli-min-version": "minimum" } };
 const snapshot = { files: { ...baseline.files }, upstreamCommit: "new", cliRelease: baseline.cliRelease, installerMatches: true,
@@ -48,4 +48,25 @@ test('monitor covers renamed CLI setup guidance and detects later edits', () => 
     assert.ok(assessSnapshot(before, after, now).findings.includes(`Upstream file changed: ${path}`));
   }
   assert.equal(monitored.test('clay/skills/searches/SKILL.md'), false);
+});
+
+test("snapshot API reads use the supplied token without exposing it in errors", async (t) => {
+  for (const token of [undefined, "fixture-token"]) {
+    const seen = [];
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+      seen.push({url, headers: options.headers});
+      return {ok: false, status: 403};
+    });
+    await assert.rejects(collectPublicSnapshot(token), error => {
+      assert.equal(error.status, 403);
+      assert.ok(!error.message.includes("fixture-token"));
+      return true;
+    });
+    assert.equal(seen.length, 4);
+    for (const request of seen) {
+      assert.ok(request.url.startsWith("https://api.github.com/"));
+      assert.equal(request.headers.Authorization, token ? `Bearer ${token}` : undefined);
+    }
+    t.mock.restoreAll();
+  }
 });
