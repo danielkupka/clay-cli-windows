@@ -1,9 +1,9 @@
 {
-  "reviewedCommit": "934bf16b57d45d704e828c95ca8c189e6c54d178",
-  "cliRelease": "clay-cli-v1.22.0",
+  "reviewedCommit": "c5b3a6dc2f9440e8645742a29bc354726d2cab69",
+  "cliRelease": "clay-cli-v1.23.0",
   "files": {
-    "clay/.claude-plugin/plugin.json": "5aed0dc5f07e1f38135286fe79c0bb32283f728f",
-    "clay/cli-min-version": "57807d6d0d0c0a1a50ff3aacaff26d941b47b125",
+    "clay/.claude-plugin/plugin.json": "057ade79b8e11c5b502f637c98b48e9707e91edd",
+    "clay/cli-min-version": "a6c2798a482eba712199aeb965860aa7d9c7d68c",
     "clay/scripts/check-cli.sh": "1bd9d49a14615e3b31e807362a482ecf9a16bbbf",
     "clay/scripts/cli-install-common.sh": "2fad17479cc505faf6f948b2a58b1485fdf6a1e1",
     "clay/scripts/install-cli.sh": "7cbe46a14e2186f5c98b8bb9c13b4299aca65cd1",
