@@ -1,0 +1,29 @@
+name: TEST ONLY - Codex bot trigger probe
+on:
+  push:
+    branches: [codex/cloud-bot-trigger-probe]
+    paths: [.github/workflows/cloud-trigger-probe.yml]
+permissions:
+  contents: read
+  pull-requests: write
+concurrency:
+  group: cloud-trigger-probe-5
+  cancel-in-progress: false
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Post one bounded Codex request as the Actions bot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: danielkupka/clay-cli-windows
+        shell: bash
+        run: |
+          set -euo pipefail
+          comments=$(gh api --paginate repos/danielkupka/clay-cli-windows/issues/5/comments --jq '.[] | select(.user.login == "github-actions[bot]") | .body')
+          if [[ "$comments" == *"clay-cloud-trigger-probe-v1"* ]]; then
+            echo 'Probe already requested; no duplicate comment.'
+            exit 0
+          fi
+          gh pr comment 5 --body '@codex This is an authorized, TEST ONLY trigger probe (clay-cloud-trigger-probe-v1). In this PR branch change only docs/cloud-trigger-probe.md: replace "Probe result: PENDING" with "Probe result: CODEX_CLOUD_RESPONDED". Commit and push that one-file change to this PR if permitted, and reply with the result and task link. Do not merge, edit any other file, change workflows or schedules, publish releases, use Clay credentials, or run searches/enrichments. If a bot cannot authorize this request, explain that without changing anything.'
